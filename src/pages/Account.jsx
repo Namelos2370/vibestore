@@ -5,9 +5,10 @@ import { useUser, signIn, signUp, trialDaysLeft } from '../lib/store'
 export default function Account() {
   const user = useUser()
   const nav = useNavigate()
-    const [mode, setMode] = useState('in')
+  const [mode, setMode] = useState('in')
   const [f, setF] = useState({ name: '', email: '', password: '' })
   const [err, setErr] = useState('')
+  const [info, setInfo] = useState('')
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value })
 
   if (user) {
@@ -24,11 +25,12 @@ export default function Account() {
     )
   }
 
-  function submit(e) {
+  async function submit(e) {
     e.preventDefault()
-    setErr('')
+    setErr(''); setInfo('')
     try {
-      const u = mode === 'in' ? signIn(f.email, f.password) : signUp(f)
+      const u = mode === 'in' ? await signIn(f.email, f.password) : await signUp(f)
+      if (u && u.pendingConfirmation) { setInfo(`Un email de confirmation a été envoyé à ${u.email}. Clique sur le lien, puis connecte-toi.`); setMode('in'); return }
       nav(u.role === 'admin' ? '/admin' : u.role === 'artist' ? '/studio' : '/decouvrir')
     } catch (x) { setErr(x.message) }
   }
@@ -41,6 +43,7 @@ export default function Account() {
         <label className="field"><span>Email</span><input id="email" type="email" value={f.email} onChange={set('email')} autoComplete="email" /></label>
         <label className="field"><span>Mot de passe</span><input id="password" type="password" value={f.password} onChange={set('password')} autoComplete={mode === 'in' ? 'current-password' : 'new-password'} /></label>
         {err && <p className="err" role="alert">{err}</p>}
+        {info && <p className="ok" role="status">{info}</p>}
         <button className="btn buy wide" type="submit">{mode === 'in' ? 'Se connecter' : 'Créer mon compte'}</button>
         <button className="linkbtn" type="button" onClick={() => { setMode(mode === 'in' ? 'up' : 'in'); setErr('') }}>
           {mode === 'in' ? 'Pas encore de compte ? Inscris-toi' : 'J’ai déjà un compte'}

@@ -36,7 +36,7 @@ export default function Cart() {
     setBusy(true)
     await new Promise((r) => setTimeout(r, 1200)) // simulation de la validation par l'opérateur
     try {
-      checkout(user, lines.map((l) => ({ type: l.type, id: l.id })), chosen)
+      await checkout(user, lines.map((l) => ({ type: l.type, id: l.id })), chosen)
       clearCart()
       nav('/bibliotheque?achat=ok')
     } catch (e) {

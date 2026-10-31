@@ -11,11 +11,11 @@ function ArtistForm({ admin }) {
   const [err, setErr] = useState('')
   const [done, setDone] = useState(null)
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value })
-  function submit(e) {
+  async function submit(e) {
     e.preventDefault()
     setErr(''); setDone(null)
     try {
-      const r = createArtist(admin, f)
+      const r = await createArtist(admin, f)
       setDone(r)
       setF({ name: '', contact: '', genre: '', bio: '' })
     } catch (x) { setErr(x.message) }
@@ -23,10 +23,10 @@ function ArtistForm({ admin }) {
   return (
     <form className="panel form" onSubmit={submit}>
       <h2>Ajouter un artiste</h2>
-      <p className="muted small">L’artiste reçoit un lien pour choisir son mot de passe et accéder à son studio.</p>
+      <p className="muted small">L’artiste crée son compte avec l’email indiqué ici : il est alors relié automatiquement à sa fiche et accède à son studio.</p>
       <div className="row wrap">
         <label className="field grow"><span>Nom d’artiste</span><input id="aname" value={f.name} onChange={set('name')} /></label>
-        <label className="field grow"><span>Email ou téléphone</span><input id="acontact" value={f.contact} onChange={set('contact')} /></label>
+        <label className="field grow"><span>Email de l’artiste</span><input id="acontact" value={f.contact} onChange={set('contact')} /></label>
       </div>
       <div className="row wrap">
         <label className="field grow"><span>Genre</span><input id="agenre" value={f.genre} onChange={set('genre')} /></label>
@@ -35,7 +35,9 @@ function ArtistForm({ admin }) {
       {err && <p className="err" role="alert">{err}</p>}
       {done && (
         <p className="ok" role="status">
-          Compte créé pour {done.artist.name}. Démonstration : identifiant <b>{done.email}</b>, mot de passe provisoire <b>{done.tempPassword}</b>. En production, un lien d’invitation est envoyé.
+          {done.tempPassword
+            ? <>Compte créé pour {done.artist.name}. Démonstration : identifiant <b>{done.email}</b>, mot de passe provisoire <b>{done.tempPassword}</b>.</>
+            : <>Fiche créée pour {done.artist.name}. Demande-lui d’ouvrir le site, de cliquer sur « Créer un compte » avec l’email <b>{done.email}</b> et de confirmer son email : son studio sera alors activé.</>}
         </p>
       )}
       <button className="btn buy" type="submit">Créer le compte artiste</button>
@@ -59,11 +61,11 @@ function ReleaseForm({ admin, artists, preset }) {
     const file = e.target.files && e.target.files[0]
     setRows(rows.map((r, j) => (j === i ? { ...r, audioName: file ? file.name : '', title: r.title || (file ? file.name.replace(/\.[^.]+$/, '') : '') } : r)))
   }
-  function submit(e) {
+  async function submit(e) {
     e.preventDefault()
     setErr(''); setOk('')
     try {
-      createRelease(admin, { artistId: artistId || preset, title, kind, albumPrice, color, tracks: rows })
+      await createRelease(admin, { artistId: artistId || preset, title, kind, albumPrice, color, tracks: rows })
       setTitle(''); setRows([emptyRow()])
       setOk('Sortie publiée dans le catalogue.')
     } catch (x) { setErr(x.message) }
@@ -189,7 +191,7 @@ export default function Admin() {
               <label className="field grow"><span>Durée du lancement (mois)</span><input id="c3" type="number" min="0" max="36" value={form.promoMonths} onChange={setF('promoMonths')} /></label>
               <label className="field grow"><span>Prix minimum (FCFA)</span><input id="c4" type="number" min="0" step="100" value={form.minPrice} onChange={setF('minPrice')} /></label>
             </div>
-            <button className="btn buy" type="button" onClick={() => { updateSettings({ commissionPct: Number(form.commissionPct), promoCommissionPct: Number(form.promoCommissionPct), promoMonths: Number(form.promoMonths), minPrice: Number(form.minPrice) || MIN_PRICE }); setS(null) }}>Enregistrer</button>
+            <button className="btn buy" type="button" onClick={async () => { try { await updateSettings({ commissionPct: Number(form.commissionPct), promoCommissionPct: Number(form.promoCommissionPct), promoMonths: Number(form.promoMonths), minPrice: Number(form.minPrice) || MIN_PRICE }); setS(null) } catch (x) { window.alert(x.message) } }}>Enregistrer</button>
           </section>
           <section className="panel">
             <h2>Moyens de paiement</h2>

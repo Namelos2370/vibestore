@@ -12,7 +12,7 @@ Le site fonctionne en entier avec une base locale (navigateur) et des données d
 - Commission : 15 % pendant 6 mois de lancement, puis 20 % (modifiable dans l'admin).
 - Paiement **simulé** (aucun débit). Audio : sons de test générés (le vrai audio vient avec Supabase Storage).
 
-Catalogue vide au départ. Accès équipe : page Connexion, admin@vibestore.demo / admin123 (démonstration), puis menu Admin.
+Les données sont dans Supabase (voir `supabase/schema.sql`, à exécuter dans l’éditeur SQL). Pour la démonstration locale sans base : `VITE_SUPABASE_DISABLED=1`. Le premier compte créé avec l’email admin du schéma devient administrateur.
 
 ## Lancer en local
 ```
