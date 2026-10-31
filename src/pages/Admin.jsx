@@ -4,7 +4,7 @@ import { useDb, useUser, createArtist, createRelease, updateSettings, togglePaym
 import { Empty } from '../components/ui'
 
 const COLORS = ['#8B5CF6', '#22D3C5', '#F472B6', '#F59E0B', '#60A5FA']
-const emptyRow = () => ({ title: '', price: 1000, duration: 200, audioName: '' })
+const emptyRow = () => ({ title: '', price: 1000, duration: 200, audioName: '', file: null })
 
 function ArtistForm({ admin }) {
   const [f, setF] = useState({ name: '', contact: '', genre: '', bio: '' })
@@ -55,20 +55,21 @@ function ReleaseForm({ admin, artists, preset }) {
   const [rows, setRows] = useState([emptyRow()])
   const [err, setErr] = useState('')
   const [ok, setOk] = useState('')
+  const [busy, setBusy] = useState(false)
   const min = db.settings.minPrice
   const upd = (i, k) => (e) => setRows(rows.map((r, j) => (j === i ? { ...r, [k]: e.target.value } : r)))
   const pickAudio = (i) => (e) => {
     const file = e.target.files && e.target.files[0]
-    setRows(rows.map((r, j) => (j === i ? { ...r, audioName: file ? file.name : '', title: r.title || (file ? file.name.replace(/\.[^.]+$/, '') : '') } : r)))
+    setRows(rows.map((r, j) => (j === i ? { ...r, file: file || null, audioName: file ? file.name : '', title: r.title || (file ? file.name.replace(/\.[^.]+$/, '') : '') } : r)))
   }
   async function submit(e) {
     e.preventDefault()
-    setErr(''); setOk('')
+    setErr(''); setOk(''); setBusy(true)
     try {
       await createRelease(admin, { artistId: artistId || preset, title, kind, albumPrice, color, tracks: rows })
       setTitle(''); setRows([emptyRow()])
       setOk('Sortie publiée dans le catalogue.')
-    } catch (x) { setErr(x.message) }
+    } catch (x) { setErr(x.message) } finally { setBusy(false) }
   }
   const shown = kind === 'single' ? rows.slice(0, 1) : rows
   return (
@@ -103,17 +104,17 @@ function ReleaseForm({ admin, artists, preset }) {
         <div key={i} className="row wrap trow">
           <label className="field grow2"><span>Titre {i + 1}</span><input id={'tt' + i} value={r.title} onChange={upd(i, 'title')} /></label>
           <label className="field"><span>Prix (FCFA, min. {min})</span><input id={'tp' + i} type="number" min={min} step="100" value={r.price} onChange={upd(i, 'price')} /></label>
-          <label className="field"><span>Durée (s)</span><input id={'td' + i} type="number" min="30" value={r.duration} onChange={upd(i, 'duration')} /></label>
+          <label className="field"><span>Durée (s, auto avec un fichier)</span><input id={'td' + i} type="number" min="30" value={r.duration} onChange={upd(i, 'duration')} /></label>
           <label className="field grow2"><span>Fichier audio (WAV ou MP3){r.audioName ? ` : ${r.audioName}` : ''}</span>
             <input id={'ta' + i} type="file" accept="audio/*" onChange={pickAudio(i)} />
           </label>
         </div>
       ))}
       {kind === 'album' && <button className="btn small ghost" type="button" onClick={() => setRows([...rows, emptyRow()])}>+ Ajouter un titre</button>}
-      <p className="muted small">Démonstration : le fichier choisi n’est pas encore envoyé, un son de test est utilisé. Avec Supabase Storage, le fichier complet est stocké en privé et l’extrait de 30 s en public.</p>
+      <p className="muted small">Le fichier complet est stocké en privé (accessible seulement après achat). L’extrait de 30 s et la durée sont créés automatiquement. Sans fichier, un son de test est utilisé. Taille maximum : 50 Mo par titre.</p>
       {err && <p className="err" role="alert">{err}</p>}
       {ok && <p className="ok" role="status">{ok}</p>}
-      <button className="btn buy" type="submit">Publier dans le catalogue</button>
+      <button className="btn buy" type="submit" disabled={busy}>{busy ? 'Envoi en cours…' : 'Publier dans le catalogue'}</button>
     </form>
   )
 }

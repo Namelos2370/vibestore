@@ -15,6 +15,7 @@ function Player() {
       {notice && (
         <div className="notice">
           {notice.type === 'signup' && (<><span>Crée un compte pour écouter 30 secondes gratuites de chaque musique.</span><button className="btn small buy" type="button" onClick={() => { setNotice(null); nav('/compte') }}>Créer un compte</button></>)}
+          {notice.type === 'error' && (<><span>{notice.message}</span><button className="btn small ghost" type="button" onClick={() => setNotice(null)}>Fermer</button></>)}
           {notice.type === 'expired' && (<><span>Ton mois d’essai est terminé. Achète ce titre pour l’écouter en entier.</span><button className="btn small ghost" type="button" onClick={() => setNotice(null)}>Fermer</button></>)}
           {notice.type === 'previewEnd' && track && (<><span>Fin de l’aperçu de 30 s.</span><button className="btn small buy" type="button" onClick={() => { addToCart('track', track.id); setNotice(null); nav('/panier') }}>Acheter · {fcfa(track.price)}</button><button className="btn small ghost" type="button" onClick={() => setNotice(null)}>Fermer</button></>)}
         </div>

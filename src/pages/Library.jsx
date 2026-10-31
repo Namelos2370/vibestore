@@ -1,6 +1,6 @@
 import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { useDb, useUser, catalog, owns, fcfa } from '../lib/store'
-import { demoAudioUrl } from '../lib/audio'
+import { trackAudioUrl } from '../lib/store'
 import { AlbumCard, TrackRow, Empty } from '../components/ui'
 
 export default function Library() {
@@ -30,12 +30,12 @@ export default function Library() {
             {myTracks.map((t) => (
               <div key={t.id} className="withdl">
                 <TrackRow t={t} />
-                <a className="btn small ghost" href={demoAudioUrl(t.seed, 60)} download={`${t.artist.name} - ${t.title}.wav`}>Télécharger</a>
+                <button className="btn small ghost" type="button" onClick={async () => { try { const u = await trackAudioUrl(t, 'full', { download: true }); const a = document.createElement('a'); a.href = u; a.download = `${t.artist.name} - ${t.title}`; document.body.appendChild(a); a.click(); a.remove() } catch (e) { window.alert(e.message) } }}>Télécharger</button>
               </div>
             ))}
           </ul>
         ) : <Empty>Tu n’as pas encore acheté de titre. <Link to="/explorer">Explorer le catalogue</Link></Empty>}
-        <p className="muted small">Démonstration : le fichier téléchargé est un extrait de test, pas le vrai morceau.</p>
+        <p className="muted small">Les titres sans fichier audio envoyé jouent un son de test.</p>
       </section>
       <section>
         <h2>Historique des achats</h2>

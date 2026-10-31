@@ -1,6 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, useCallback } from 'react'
-import { useDb, useUser, listenRight, countPlay, PREVIEW_SECONDS } from './store'
-import { demoAudioUrl } from './audio'
+import { useDb, useUser, listenRight, countPlay, trackAudioUrl, PREVIEW_SECONDS } from './store'
 
 const Ctx = createContext(null)
 export const useApp = () => useContext(Ctx)
@@ -20,6 +19,7 @@ export function AppProvider({ children }) {
   const [pos, setPos] = useState(0)
   const [notice, setNotice] = useState(null)
   const modeRef = useRef('preview')
+  const reqRef = useRef(0)
 
   const [cart, setCart] = useState(() => {
     try { return JSON.parse(localStorage.getItem(CART_KEY)) || [] } catch { return [] }
@@ -58,11 +58,15 @@ export function AppProvider({ children }) {
     modeRef.current = right
     setMode(right)
     setTrack(t)
-    a.src = demoAudioUrl(t.seed, DEMO_SECONDS)
-    a.currentTime = 0
     setPos(0)
     countPlay(t.id)
-    a.play().then(() => setPlaying(true)).catch(() => setPlaying(false))
+    const req = ++reqRef.current
+    trackAudioUrl(t, right).then((url) => {
+      if (req !== reqRef.current) return
+      a.src = url
+      a.currentTime = 0
+      return a.play().then(() => setPlaying(true)).catch(() => setPlaying(false))
+    }).catch((e) => { setPlaying(false); setNotice({ type: 'error', message: e.message }) })
   }, [db, user, track])
 
   const toggle = useCallback(() => { if (track) play(track) }, [track, play])

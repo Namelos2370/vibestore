@@ -224,3 +224,32 @@ end $$;
 
 -- Stockage : créer dans Supabase > Storage (ou utiliser Cloudinary)
 --   previews (public) : extraits de 30 s  |  audio (privé) : fichiers complets  |  covers (public) : pochettes
+
+-- ============================================================
+-- Stockage audio (v0.3b) — extraits publics, fichiers complets privés
+-- ============================================================
+insert into storage.buckets (id, name, public) values ('previews', 'previews', true) on conflict (id) do nothing;
+insert into storage.buckets (id, name, public, file_size_limit) values ('audio', 'audio', false, 52428800) on conflict (id) do nothing;
+
+drop policy if exists "previews: lecture publique" on storage.objects;
+drop policy if exists "previews: écriture admin" on storage.objects;
+drop policy if exists "audio: écriture admin" on storage.objects;
+drop policy if exists "audio: lecture acheteurs" on storage.objects;
+
+create policy "previews: lecture publique" on storage.objects for select using (bucket_id = 'previews');
+create policy "previews: écriture admin" on storage.objects for all
+  using (bucket_id = 'previews' and public.is_admin()) with check (bucket_id = 'previews' and public.is_admin());
+
+-- Fichiers complets : l'admin gère tout ; un auditeur ne peut lire (lien signé) que ce qu'il a acheté ; l'artiste ses propres titres.
+-- Le premier dossier du chemin est l'identifiant du titre : <id titre>/full.mp3
+create policy "audio: écriture admin" on storage.objects for all
+  using (bucket_id = 'audio' and public.is_admin()) with check (bucket_id = 'audio' and public.is_admin());
+create policy "audio: lecture acheteurs" on storage.objects for select using (
+  bucket_id = 'audio' and exists (
+    select 1 from public.tracks t
+    where t.id::text = split_part(name, '/', 1)
+      and (
+        exists (select 1 from public.purchases p where p.user_id = auth.uid() and p.status = 'paid'
+                  and ((p.item_type = 'track' and p.item_id = t.id) or (p.item_type = 'release' and p.item_id = t.release_id)))
+        or exists (select 1 from public.artists a where a.id = t.artist_id and a.user_id = auth.uid())
+      )));

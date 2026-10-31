@@ -4,6 +4,8 @@
 // Les écrans lisent un cache en mémoire (db) ; les actions qui modifient les données sont asynchrones.
 import { useSyncExternalStore } from 'react'
 import { supabase } from './supabase'
+import { analyseAudio } from './audioTools'
+import { demoAudioUrl } from './audio'
 
 const REMOTE = !!supabase
 
@@ -293,7 +295,7 @@ const must = ({ data, error }) => { if (error) throw new Error(frError(error.mes
 
 const mapArtist = (a) => ({ id: a.id, userId: a.user_id, name: a.name, genre: a.genre, bio: a.bio, status: a.status, account: a.account, createdAt: ms(a.created_at) })
 const mapAlbum = (r) => ({ id: r.id, artistId: r.artist_id, title: r.title, kind: r.kind, color: r.color, price: r.price, status: r.status, createdAt: ms(r.created_at) })
-const mapTrack = (t) => ({ id: t.id, albumId: t.release_id, artistId: t.artist_id, title: t.title, duration: t.duration, price: t.price, seed: t.seed, audioName: t.audio_name, status: t.status, plays: t.plays })
+const mapTrack = (t) => ({ id: t.id, albumId: t.release_id, artistId: t.artist_id, title: t.title, duration: t.duration, price: t.price, seed: t.seed, audioName: t.audio_name, audioPath: t.audio_path, previewPath: t.preview_path, status: t.status, plays: t.plays })
 const mapPurchase = (p) => ({ id: p.id, userId: p.user_id, itemType: p.item_type === 'release' ? 'album' : 'track', itemId: p.item_id, artistId: p.artist_id, amount: p.amount, commissionPct: Number(p.commission_pct), method: p.method, at: ms(p.created_at) })
 const mapSettings = (s) => ({
   commissionPct: Number(s.commission_pct), promoCommissionPct: Number(s.promo_commission_pct), promoMonths: s.promo_months,
@@ -404,10 +406,28 @@ async function remoteCreateRelease(admin, { artistId, title, kind, albumPrice, c
   if (kind === 'album' && !(Number(albumPrice) >= min)) throw new Error(`Le prix minimum est de ${min} FCFA pour l’album.`)
   const final = kind === 'single' ? list.slice(0, 1) : list
   const price = kind === 'album' ? Number(albumPrice) : Number(final[0].price)
+  // 1) Fichiers audio : analyse (durée + extrait de 30 s) puis envoi, avant de créer la sortie.
+  const prepared = []
+  for (const t of final) {
+    const id = crypto.randomUUID()
+    const row = { id, title: t.title.trim(), price: Number(t.price), duration: Number(t.duration) || 180, audio_name: t.audioName || '', audio_path: null, preview_path: null }
+    if (t.file) {
+      const { duration, preview } = await analyseAudio(t.file)
+      const ext = (t.file.name.split('.').pop() || 'mp3').toLowerCase().replace(/[^a-z0-9]/g, '') || 'mp3'
+      const previewPath = `${id}/preview.wav`
+      const audioPath = `${id}/full.${ext}`
+      const up1 = await supabase.storage.from('previews').upload(previewPath, preview, { contentType: 'audio/wav', upsert: true })
+      if (up1.error) throw new Error('Envoi de l’extrait impossible : ' + frError(up1.error.message))
+      const up2 = await supabase.storage.from('audio').upload(audioPath, t.file, { contentType: t.file.type || 'audio/mpeg', upsert: true })
+      if (up2.error) throw new Error(/exceeded|too large|size/i.test(up2.error.message) ? 'Fichier trop lourd (50 Mo maximum).' : 'Envoi du fichier impossible : ' + frError(up2.error.message))
+      Object.assign(row, { duration, audio_path: audioPath, preview_path: previewPath })
+    }
+    prepared.push(row)
+  }
+  // 2) Sortie et titres
   const rel = must(await supabase.from('releases').insert({ artist_id: artistId, title: title.trim(), kind, color, price }).select().single())
-  const ins = await supabase.from('tracks').insert(final.map((t, i) => ({
-    release_id: rel.id, artist_id: artistId, title: t.title.trim(), duration: Number(t.duration) || 180,
-    price: Number(t.price), seed: Math.floor(Math.random() * 90) + 10 + i, audio_name: t.audioName || '',
+  const ins = await supabase.from('tracks').insert(prepared.map((r, i) => ({
+    ...r, release_id: rel.id, artist_id: artistId, seed: Math.floor(Math.random() * 90) + 10 + i,
   })))
   if (ins.error) {
     await supabase.from('releases').delete().eq('id', rel.id)
@@ -427,4 +447,17 @@ async function remoteTogglePayment(id) {
   const methods = db.settings.paymentMethods.map((x) => (x.id === id ? { ...x, enabled: !x.enabled } : x))
   must(await supabase.from('settings').update({ payment_methods: methods }).eq('id', 1).select())
   await refresh()
+}
+
+/** Adresse du son d'un titre : extrait public (30 s), fichier complet signé (acheteurs) ou son de démonstration. */
+export async function trackAudioUrl(t, mode, { download = false } = {}) {
+  if (REMOTE && t.audioPath) {
+    if (mode === 'full') {
+      const { data, error } = await supabase.storage.from('audio').createSignedUrl(t.audioPath, 3600, download ? { download: `${t.artist?.name || 'VibeStore'} - ${t.title}.${t.audioPath.split('.').pop()}` } : undefined)
+      if (error) throw new Error('Écoute impossible : ' + frError(error.message))
+      return data.signedUrl
+    }
+    return supabase.storage.from('previews').getPublicUrl(t.previewPath).data.publicUrl
+  }
+  return demoAudioUrl(t.seed, download ? 60 : 60)
 }
