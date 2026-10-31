@@ -3,6 +3,7 @@ import { AppProvider } from './lib/AppContext'
 import Layout from './components/Layout'
 import Home from './pages/Home'
 import Explore from './pages/Explore'
+import Discover from './pages/Discover'
 import Release from './pages/Release'
 import Artist from './pages/Artist'
 import Cart from './pages/Cart'
@@ -18,6 +19,7 @@ export default function App() {
         <Routes>
           <Route element={<Layout />}>
             <Route index element={<Home />} />
+            <Route path="decouvrir" element={<Discover />} />
             <Route path="explorer" element={<Explore />} />
             <Route path="sortie/:id" element={<Release />} />
             <Route path="artiste/:id" element={<Artist />} />

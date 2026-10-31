@@ -50,6 +50,7 @@ export default function Layout() {
           <Link to="/" className="brand"><img src="/favicon.png" alt="" width="34" height="34" /><span>Vibe<b>Store</b></span></Link>
           <nav aria-label="Navigation principale">
             <NavLink to="/" end>Accueil</NavLink>
+            <NavLink to="/decouvrir">Découvrir</NavLink>
             <NavLink to="/explorer">Explorer</NavLink>
             {user && <NavLink to="/bibliotheque">Ma musique</NavLink>}
             {user && user.role === 'artist' && <NavLink to="/studio">Studio</NavLink>}
