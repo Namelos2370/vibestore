@@ -65,3 +65,22 @@ export function AlbumCard({ al }) {
 export function Empty({ children }) {
   return <p className="empty">{children}</p>
 }
+
+function youtubeId(u) {
+  const m = u.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/))([\w-]{11})/)
+  return m ? m[1] : null
+}
+/** Clip vidéo : lien YouTube (intégré) ou fichier vidéo. */
+export function Clip({ url }) {
+  if (!url) return null
+  const yt = youtubeId(url)
+  return (
+    <div className="clip">
+      {yt ? (
+        <iframe title="Clip" src={`https://www.youtube-nocookie.com/embed/${yt}?rel=0&playsinline=1`} allow="accelerometer; encrypted-media; picture-in-picture; fullscreen" allowFullScreen loading="lazy" />
+      ) : (
+        <video src={url} controls playsInline preload="metadata" />
+      )}
+    </div>
+  )
+}

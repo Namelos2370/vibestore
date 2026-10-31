@@ -1,6 +1,6 @@
 import { Link, useParams } from 'react-router-dom'
 import { useDb, catalog, fcfa, mmss } from '../lib/store'
-import { AddButton, Cover, TrackRow, Empty } from '../components/ui'
+import { AddButton, Cover, TrackRow, Empty, Clip } from '../components/ui'
 
 export default function Release() {
   const { id } = useParams()
@@ -26,6 +26,12 @@ export default function Release() {
         </div>
       </div>
       <ul className="tracks">{list.map((t) => <TrackRow key={t.id} t={t} showArtist={false} />)}</ul>
+      {al.videoUrl && (
+        <section>
+          <h2>Clip</h2>
+          <Clip url={al.videoUrl} />
+        </section>
+      )}
     </>
   )
 }

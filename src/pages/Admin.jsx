@@ -2,10 +2,12 @@ import { useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useDb, useUser, createArtist, createRelease, updateArtist, updateRelease, updateTrack, deleteArtist, deleteRelease, deleteTrack, updateSettings, togglePayment, currentCommission, fcfa, MIN_PRICE } from '../lib/store'
 import { Empty } from '../components/ui'
+import LyricsEditor from '../components/LyricsEditor'
+import { trackAudioUrl, announce } from '../lib/store'
 import { mmss } from '../lib/store'
 
 const COLORS = ['#8B5CF6', '#22D3C5', '#F472B6', '#F59E0B', '#60A5FA']
-const emptyRow = () => ({ title: '', price: 1000, duration: 200, audioName: '', file: null })
+const emptyRow = () => ({ title: '', price: 1000, duration: 200, audioName: '', file: null, lyrics: '' })
 
 function ArtistForm({ admin }) {
   const [f, setF] = useState({ name: '', contact: '', genre: '', bio: '' })
@@ -55,6 +57,8 @@ function ReleaseForm({ admin, artists, preset }) {
   const [color, setColor] = useState(COLORS[0])
   const [rows, setRows] = useState([emptyRow()])
   const [cover, setCover] = useState(null)
+  const [videoUrl, setVideoUrl] = useState('')
+  const [videoFile, setVideoFile] = useState(null)
   const [coverKey, setCoverKey] = useState(0)
   const [err, setErr] = useState('')
   const [ok, setOk] = useState('')
@@ -69,8 +73,8 @@ function ReleaseForm({ admin, artists, preset }) {
     e.preventDefault()
     setErr(''); setOk(''); setBusy(true)
     try {
-      await createRelease(admin, { artistId: artistId || preset, title, kind, albumPrice, color, tracks: rows, cover })
-      setTitle(''); setRows([emptyRow()]); setCover(null); setCoverKey((k) => k + 1)
+      await createRelease(admin, { artistId: artistId || preset, title, kind, albumPrice, color, tracks: rows, cover, videoUrl, videoFile })
+      setTitle(''); setRows([emptyRow()]); setCover(null); setVideoUrl(''); setVideoFile(null); setCoverKey((k) => k + 1)
       setOk('Sortie publiée dans le catalogue.')
     } catch (x) { setErr(x.message) } finally { setBusy(false) }
   }
@@ -100,6 +104,12 @@ function ReleaseForm({ admin, artists, preset }) {
       <label className="field"><span>Pochette (image JPG ou PNG){cover ? ` : ${cover.name}` : ''}</span>
         <input key={coverKey} id="rcover" type="file" onChange={(e) => setCover((e.target.files && e.target.files[0]) || null)} />
       </label>
+      <label className="field"><span>Clip vidéo : lien YouTube (conseillé)</span>
+        <input id="rvideo" type="url" placeholder="https://youtu.be/…" value={videoUrl} onChange={(e) => setVideoUrl(e.target.value)} />
+      </label>
+      <label className="field"><span>… ou fichier vidéo MP4 (50 Mo max){videoFile ? ` : ${videoFile.name}` : ''}</span>
+        <input key={'v' + coverKey} id="rvideofile" type="file" onChange={(e) => setVideoFile((e.target.files && e.target.files[0]) || null)} />
+      </label>
       <div className="field"><span>Couleur de secours si pas d’image</span>
         <div className="row">{COLORS.map((c) => (
           <button key={c} type="button" aria-label={'Couleur ' + c} aria-pressed={color === c} className={'swatch' + (color === c ? ' on' : '')} style={{ background: c }} onClick={() => setColor(c)} />
@@ -114,6 +124,10 @@ function ReleaseForm({ admin, artists, preset }) {
           <label className="field grow2"><span>Fichier audio (MP3, M4A ou WAV){r.audioName ? ` : ${r.audioName}` : ''}</span>
             <input id={'ta' + i} type="file" onChange={pickAudio(i)} />
           </label>
+          <div className="grow2" style={{ flexBasis: '100%' }}>
+            <LyricsEditor value={r.lyrics} onChange={(v) => setRows((rs) => rs.map((x, j) => (j === i ? { ...x, lyrics: v } : x)))}
+              getSrc={async () => (r.file ? URL.createObjectURL(r.file) : null)} />
+          </div>
         </div>
       ))}
       {kind === 'album' && <button className="btn small ghost" type="button" onClick={() => setRows([...rows, emptyRow()])}>+ Ajouter un titre</button>}
@@ -176,14 +190,15 @@ function CatalogManager({ admin }) {
                         <div className="row wrap">
                           <label className="field grow2"><span>Titre de la sortie</span>{field('title')}</label>
                           <label className="field"><span>Prix (min. {db.settings.minPrice})</span>{field('price', { type: 'number', min: db.settings.minPrice, step: 100 })}</label>
+                          <label className="field grow2" style={{ flexBasis: '100%' }}><span>Clip : lien YouTube ou vidéo</span>{field('videoUrl', { type: 'url', placeholder: 'https://youtu.be/…' })}</label>
                           <button className="btn small buy" type="button" onClick={() => run(() => updateRelease(admin, r.id, { ...edit.f, color: r.color, status: r.status }))}>Enregistrer</button>
                           <button className="btn small ghost" type="button" onClick={() => setEdit(null)}>Annuler</button>
                         </div>
                       ) : (
                         <div className="row wrap mrow">
                           <div className="tmeta grow"><b>{r.title}{hidden(r) && <span className="badge"> Masqué</span>}</b><span>{r.kind === 'album' ? 'Album' : 'Single'} · {fcfa(r.price)} · {tracksOf(r.id).length} titre(s)</span></div>
-                          <button className="btn small ghost" type="button" onClick={() => setEdit({ kind: 'release', id: r.id, f: { title: r.title, price: r.price } })}>Modifier</button>
-                          <button className="btn small ghost" type="button" onClick={() => run(() => updateRelease(admin, r.id, { title: r.title, price: r.price, color: r.color, status: st(r) }))}>{hidden(r) ? 'Réafficher' : 'Masquer'}</button>
+                          <button className="btn small ghost" type="button" onClick={() => setEdit({ kind: 'release', id: r.id, f: { title: r.title, price: r.price, videoUrl: r.videoUrl || '' } })}>Modifier</button>
+                          <button className="btn small ghost" type="button" onClick={() => run(() => updateRelease(admin, r.id, { title: r.title, price: r.price, color: r.color, status: st(r), videoUrl: r.videoUrl }))}>{hidden(r) ? 'Réafficher' : 'Masquer'}</button>
                           <button className="btn small ghost danger" type="button" onClick={() => ask(`Supprimer « ${r.title} » et ses titres ?`) && run(() => deleteRelease(admin, r.id))}>Supprimer</button>
                         </div>
                       )}
@@ -194,14 +209,17 @@ function CatalogManager({ admin }) {
                               <div className="row wrap">
                                 <label className="field grow2"><span>Titre</span>{field('title')}</label>
                                 <label className="field"><span>Prix (min. {db.settings.minPrice})</span>{field('price', { type: 'number', min: db.settings.minPrice, step: 100 })}</label>
+                                <div style={{ flexBasis: '100%' }}>
+                                  <LyricsEditor value={edit.f.lyrics || ''} onChange={(v) => setEdit({ ...edit, f: { ...edit.f, lyrics: v } })} getSrc={() => trackAudioUrl({ ...t, artist: a }, 'full')} />
+                                </div>
                                 <button className="btn small buy" type="button" onClick={() => run(() => updateTrack(admin, t.id, { ...edit.f, status: t.status }))}>Enregistrer</button>
                                 <button className="btn small ghost" type="button" onClick={() => setEdit(null)}>Annuler</button>
                               </div>
                             ) : (
                               <div className="row wrap mrow">
-                                <div className="tmeta grow"><span>{t.title}{hidden(t) && <span className="badge"> Masqué</span>} · {fcfa(t.price)} · {mmss(t.duration)}{t.audioPath ? '' : ' · son de test'}</span></div>
-                                <button className="btn small ghost" type="button" onClick={() => setEdit({ kind: 'track', id: t.id, f: { title: t.title, price: t.price } })}>Modifier</button>
-                                <button className="btn small ghost" type="button" onClick={() => run(() => updateTrack(admin, t.id, { title: t.title, price: t.price, status: st(t) }))}>{hidden(t) ? 'Réafficher' : 'Masquer'}</button>
+                                <div className="tmeta grow"><span>{t.title}{hidden(t) && <span className="badge"> Masqué</span>} · {fcfa(t.price)} · {mmss(t.duration)}{t.audioPath ? '' : ' · son de test'}{t.lyrics ? ' · paroles' : ''}</span></div>
+                                <button className="btn small ghost" type="button" onClick={() => setEdit({ kind: 'track', id: t.id, f: { title: t.title, price: t.price, lyrics: t.lyrics || '' } })}>Modifier</button>
+                                <button className="btn small ghost" type="button" onClick={() => run(() => updateTrack(admin, t.id, { title: t.title, price: t.price, status: st(t), lyrics: t.lyrics }))}>{hidden(t) ? 'Réafficher' : 'Masquer'}</button>
                                 <button className="btn small ghost danger" type="button" onClick={() => ask(`Supprimer « ${t.title} » ?`) && run(() => deleteTrack(admin, t.id))}>Supprimer</button>
                               </div>
                             )}
@@ -217,6 +235,33 @@ function CatalogManager({ admin }) {
         })}
       </ul>
     </section>
+  )
+}
+
+function AnnounceForm({ admin }) {
+  const [f, setF] = useState({ title: '', body: '', url: '/' })
+  const [err, setErr] = useState('')
+  const [ok, setOk] = useState('')
+  const [busy, setBusy] = useState(false)
+  async function send(e) {
+    e.preventDefault(); setErr(''); setOk(''); setBusy(true)
+    try {
+      const r = await announce(admin, f)
+      setOk(r && r.error ? 'Annonce publiée dans l’app. L’envoi sur les téléphones n’est pas encore configuré.' : `Annonce publiée. Envoyée à ${r.sent || 0} appareil(s).`)
+      setF({ title: '', body: '', url: '/' })
+    } catch (x) { setErr(x.message) } finally { setBusy(false) }
+  }
+  return (
+    <form className="panel form" onSubmit={send}>
+      <h2>Envoyer une annonce</h2>
+      <p className="muted small">Elle apparaît dans la cloche de l’app et arrive en notification sur les téléphones qui l’ont activée. Les nouvelles sorties sont annoncées automatiquement.</p>
+      <label className="field"><span>Titre</span><input id="ntitle" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder="Nouveau single de …" /></label>
+      <label className="field"><span>Message (facultatif)</span><input id="nbody" value={f.body} onChange={(e) => setF({ ...f, body: e.target.value })} /></label>
+      <label className="field"><span>Page à ouvrir au clic</span><input id="nurl" value={f.url} onChange={(e) => setF({ ...f, url: e.target.value })} placeholder="/decouvrir" /></label>
+      {err && <p className="err" role="alert">{err}</p>}
+      {ok && <p className="ok" role="status">{ok}</p>}
+      <button className="btn buy" type="submit" disabled={busy}>{busy ? 'Envoi…' : 'Envoyer'}</button>
+    </form>
   )
 }
 
@@ -240,7 +285,7 @@ export default function Admin() {
       <h1 className="h1">Administration</h1>
       <p className="muted">Les comptes artistes et leurs titres sont ajoutés uniquement ici, par l’équipe VibeStore. Les artistes ne s’inscrivent pas seuls et ne publient pas eux-mêmes.</p>
       <div className="tabs" role="tablist">
-        {[['artistes', 'Artistes et titres'], ['ventes', 'Ventes'], ['reglages', 'Réglages']].map(([k, l]) => (
+        {[['artistes', 'Artistes et titres'], ['annonces', 'Annonces'], ['ventes', 'Ventes'], ['reglages', 'Réglages']].map(([k, l]) => (
           <button key={k} role="tab" aria-selected={tab === k} className={'tab' + (tab === k ? ' on' : '')} type="button" onClick={() => setTab(k)}>{l}</button>
         ))}
       </div>
@@ -252,6 +297,8 @@ export default function Admin() {
           {db.artists.length > 0 && <ReleaseForm key={db.artists.length} admin={user} artists={db.artists} />}
         </>
       )}
+
+      {tab === 'annonces' && <AnnounceForm admin={user} />}
 
       {tab === 'ventes' && (
         <>

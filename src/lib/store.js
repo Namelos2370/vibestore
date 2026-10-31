@@ -49,7 +49,7 @@ function seed() {
 
 function emptyDb() {
   return {
-    users: [], artists: [], albums: [], tracks: [], purchases: [],
+    users: [], artists: [], albums: [], tracks: [], purchases: [], notifications: [],
     settings: {
       commissionPct: 20, promoCommissionPct: 15, promoMonths: 6, launchAt: Date.now(), minPrice: MIN_PRICE,
       paymentMethods: [
@@ -70,6 +70,7 @@ function load() {
 }
 
 let db = REMOTE ? emptyDb() : load()
+if (!db.notifications) db.notifications = []
 let me = null // utilisateur connecté (mode Supabase)
 let version = 0
 const listeners = new Set()
@@ -239,8 +240,8 @@ export function createArtist(admin, { name, contact, genre, bio }) {
 }
 
 /** Ajoute une sortie (album ou single) et ses titres pour un artiste. Publiée tout de suite, sans validation. */
-export function createRelease(admin, { artistId, title, kind, albumPrice, color, tracks, cover }) {
-  if (REMOTE) return remoteCreateRelease(admin, { artistId, title, kind, albumPrice, color, tracks, cover })
+export function createRelease(admin, { artistId, title, kind, albumPrice, color, tracks, cover, videoUrl, videoFile }) {
+  if (REMOTE) return remoteCreateRelease(admin, { artistId, title, kind, albumPrice, color, tracks, cover, videoUrl, videoFile })
   requireAdmin(admin)
   const artist = db.artists.find((a) => a.id === artistId)
   if (!artist) throw new Error('Choisis un artiste.')
@@ -253,14 +254,15 @@ export function createRelease(admin, { artistId, title, kind, albumPrice, color,
   const alId = uid('al-')
   const final = kind === 'single' ? list.slice(0, 1) : list
   const price = kind === 'album' ? Number(albumPrice) : Number(final[0].price)
-  db.albums.push({ id: alId, artistId: artist.id, title: title.trim(), kind, color, price, status: 'approved', createdAt: Date.now() })
+  db.albums.push({ id: alId, artistId: artist.id, title: title.trim(), kind, color, price, videoUrl: (videoUrl || '').trim(), status: 'approved', createdAt: Date.now() })
   final.forEach((t, i) =>
     db.tracks.push({
       id: uid('t-'), albumId: alId, artistId: artist.id, title: t.title.trim(),
       duration: Number(t.duration) || 180, price: Number(t.price), seed: Math.floor(Math.random() * 90) + 10 + i,
-      audioName: t.audioName || '', status: 'approved', plays: 0,
+      audioName: t.audioName || '', lyrics: t.lyrics || '', status: 'approved', plays: 0,
     })
   )
+  addNotification({ title: `Nouvelle sortie : ${title.trim()}`, body: artist.name, url: `/sortie/${alId}` })
   save()
   return alId
 }
@@ -294,8 +296,8 @@ const frError = (m = '') => {
 const must = ({ data, error }) => { if (error) throw new Error(frError(error.message)); return data }
 
 const mapArtist = (a) => ({ id: a.id, userId: a.user_id, name: a.name, genre: a.genre, bio: a.bio, status: a.status, account: a.account, createdAt: ms(a.created_at) })
-const mapAlbum = (r) => ({ coverPath: r.cover_path, id: r.id, artistId: r.artist_id, title: r.title, kind: r.kind, color: r.color, price: r.price, status: r.status, createdAt: ms(r.created_at) })
-const mapTrack = (t) => ({ id: t.id, albumId: t.release_id, artistId: t.artist_id, title: t.title, duration: t.duration, price: t.price, seed: t.seed, audioName: t.audio_name, audioPath: t.audio_path, previewPath: t.preview_path, status: t.status, plays: t.plays })
+const mapAlbum = (r) => ({ coverPath: r.cover_path, videoUrl: r.video_url || '', id: r.id, artistId: r.artist_id, title: r.title, kind: r.kind, color: r.color, price: r.price, status: r.status, createdAt: ms(r.created_at) })
+const mapTrack = (t) => ({ lyrics: t.lyrics || '', id: t.id, albumId: t.release_id, artistId: t.artist_id, title: t.title, duration: t.duration, price: t.price, seed: t.seed, audioName: t.audio_name, audioPath: t.audio_path, previewPath: t.preview_path, status: t.status, plays: t.plays })
 const mapPurchase = (p) => ({ id: p.id, userId: p.user_id, itemType: p.item_type === 'release' ? 'album' : 'track', itemId: p.item_id, artistId: p.artist_id, amount: p.amount, commissionPct: Number(p.commission_pct), method: p.method, at: ms(p.created_at) })
 const mapSettings = (s) => ({
   commissionPct: Number(s.commission_pct), promoCommissionPct: Number(s.promo_commission_pct), promoMonths: s.promo_months,
@@ -314,13 +316,14 @@ export function refresh() {
   refreshing = (async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      const [st, ar, re, tr, pu, pr] = await Promise.all([
+      const [st, ar, re, tr, pu, pr, no] = await Promise.all([
         supabase.from('settings').select('*').eq('id', 1).maybeSingle(),
         supabase.from('artists').select('*').order('created_at'),
         supabase.from('releases').select('*').order('created_at'),
         supabase.from('tracks').select('*').order('created_at'),
         session ? supabase.from('purchases').select('*').eq('status', 'paid').order('created_at') : Promise.resolve({ data: [] }),
         session ? supabase.from('profiles').select('*').eq('id', session.user.id).maybeSingle() : Promise.resolve({ data: null }),
+        supabase.from('notifications').select('*').order('created_at', { ascending: false }).limit(50),
       ])
       const next = emptyDb()
       if (st.data) next.settings = mapSettings(st.data)
@@ -328,6 +331,7 @@ export function refresh() {
       next.albums = (re.data || []).map(mapAlbum)
       next.tracks = (tr.data || []).map(mapTrack)
       next.purchases = (pu.data || []).map(mapPurchase)
+      next.notifications = (no.data || []).map((n) => ({ id: n.id, title: n.title, body: n.body, url: n.url, at: ms(n.created_at) }))
       me = pr.data ? mapProfile(pr.data, session.user.email) : null
       next.users = me ? [me] : []
       db = next
@@ -395,7 +399,7 @@ async function remoteCreateArtist(admin, { name, contact, genre, bio }) {
   await refresh()
   return { artist: mapArtist(row), email, tempPassword: null }
 }
-async function remoteCreateRelease(admin, { artistId, title, kind, albumPrice, color, tracks, cover }) {
+async function remoteCreateRelease(admin, { artistId, title, kind, albumPrice, color, tracks, cover, videoUrl, videoFile }) {
   requireAdmin(admin)
   if (!db.artists.some((a) => a.id === artistId)) throw new Error('Choisis un artiste.')
   if (!title.trim()) throw new Error('Donne un titre à la sortie.')
@@ -410,7 +414,7 @@ async function remoteCreateRelease(admin, { artistId, title, kind, albumPrice, c
   const prepared = []
   for (const t of final) {
     const id = crypto.randomUUID()
-    const row = { id, title: t.title.trim(), price: Number(t.price), duration: Number(t.duration) || 180, audio_name: t.audioName || '', audio_path: null, preview_path: null }
+    const row = { id, title: t.title.trim(), price: Number(t.price), duration: Number(t.duration) || 180, audio_name: t.audioName || '', lyrics: t.lyrics || '', audio_path: null, preview_path: null }
     if (t.file) {
       const { duration, preview } = await analyseAudio(t.file)
       const ext = (t.file.name.split('.').pop() || 'mp3').toLowerCase().replace(/[^a-z0-9]/g, '') || 'mp3'
@@ -433,7 +437,14 @@ async function remoteCreateRelease(admin, { artistId, title, kind, albumPrice, c
     const upc = await supabase.storage.from('covers').upload(coverPath, img, { contentType: 'image/jpeg', upsert: true })
     if (upc.error) throw new Error('Envoi de la pochette impossible : ' + frError(upc.error.message))
   }
-  const rel = must(await supabase.from('releases').insert({ id: relId, artist_id: artistId, title: title.trim(), kind, color, price, cover_path: coverPath }).select().single())
+  let video = (videoUrl || '').trim() || null
+  if (videoFile) {
+    const ext = (videoFile.name.split('.').pop() || 'mp4').toLowerCase().replace(/[^a-z0-9]/g, '') || 'mp4'
+    const upv = await supabase.storage.from('videos').upload(`${relId}.${ext}`, videoFile, { contentType: videoFile.type || 'video/mp4', upsert: true })
+    if (upv.error) throw new Error(/exceeded|too large|size/i.test(upv.error.message) ? 'Clip trop lourd (50 Mo maximum). Utilise plutôt un lien YouTube.' : 'Envoi du clip impossible : ' + frError(upv.error.message))
+    video = supabase.storage.from('videos').getPublicUrl(`${relId}.${ext}`).data.publicUrl
+  }
+  const rel = must(await supabase.from('releases').insert({ id: relId, artist_id: artistId, title: title.trim(), kind, color, price, cover_path: coverPath, video_url: video }).select().single())
   const ins = await supabase.from('tracks').insert(prepared.map((r, i) => ({
     ...r, release_id: rel.id, artist_id: artistId, seed: Math.floor(Math.random() * 90) + 10 + i,
   })))
@@ -442,6 +453,8 @@ async function remoteCreateRelease(admin, { artistId, title, kind, albumPrice, c
     throw new Error(frError(ins.error.message))
   }
   await refresh()
+  const art = db.artists.find((a) => a.id === artistId)
+  announce(admin, { title: `Nouvelle sortie : ${title.trim()}`, body: art ? art.name : '', url: `/sortie/${rel.id}` }).catch(() => {})
   return rel.id
 }
 async function remoteUpdateSettings(patch) {
@@ -499,19 +512,19 @@ export async function updateArtist(admin, id, { name, genre, bio, status }) {
   if (REMOTE) { must(await supabase.from('artists').update(row).eq('id', id).select()); return refresh() }
   Object.assign(db.artists.find((a) => a.id === id), row); save()
 }
-export async function updateRelease(admin, id, { title, price, color, status }) {
+export async function updateRelease(admin, id, { title, price, color, status, videoUrl }) {
   requireAdmin(admin)
   if (!(title || '').trim()) throw new Error('Le titre ne peut pas être vide.')
   checkPrice(price, 'pour une sortie')
-  const row = { title: title.trim(), price: Number(price), color, status: cleanStatus(status) }
+  const row = { title: title.trim(), price: Number(price), color, status: cleanStatus(status), video_url: (videoUrl || '').trim() || null }
   if (REMOTE) { must(await supabase.from('releases').update(row).eq('id', id).select()); return refresh() }
-  Object.assign(db.albums.find((a) => a.id === id), row); save()
+  Object.assign(db.albums.find((a) => a.id === id), { ...row, videoUrl: row.video_url || '' }); save()
 }
-export async function updateTrack(admin, id, { title, price, status }) {
+export async function updateTrack(admin, id, { title, price, status, lyrics }) {
   requireAdmin(admin)
   if (!(title || '').trim()) throw new Error('Le titre ne peut pas être vide.')
   checkPrice(price, 'par titre')
-  const row = { title: title.trim(), price: Number(price), status: cleanStatus(status) }
+  const row = { title: title.trim(), price: Number(price), status: cleanStatus(status), lyrics: lyrics || '' }
   if (REMOTE) { must(await supabase.from('tracks').update(row).eq('id', id).select()); return refresh() }
   Object.assign(db.tracks.find((t) => t.id === id), row); save()
 }
@@ -567,3 +580,58 @@ export async function setNewPassword(password) {
   await refresh()
 }
 if (REMOTE) supabase.auth.onAuthStateChange((event) => { if (event === 'PASSWORD_RECOVERY') { recovery = true; notify() } })
+
+
+/* ---------- Notifications ---------- */
+const SEEN = 'vibestore.seen'
+const seenAt = () => { try { return Number(localStorage.getItem(SEEN)) || 0 } catch { return 0 } }
+let seen = seenAt()
+function addNotification({ title, body, url }) {
+  db.notifications.unshift({ id: uid('n-'), title, body: body || '', url: url || '/', at: Date.now() })
+}
+export function useUnread() {
+  useSyncExternalStore(subscribe, () => version)
+  return db.notifications.filter((n) => n.at > seen).length
+}
+export function markSeen() {
+  seen = Date.now()
+  try { localStorage.setItem(SEEN, String(seen)) } catch {}
+  notify()
+}
+/** Annonce de l'équipe : visible dans l'app, et envoyée en notification aux appareils abonnés. */
+export async function announce(admin, { title, body, url }) {
+  requireAdmin(admin)
+  if (!(title || '').trim()) throw new Error('Écris un titre pour l’annonce.')
+  const n = { title: title.trim(), body: (body || '').trim(), url: (url || '/').trim() || '/' }
+  if (!REMOTE) { addNotification(n); save(); return { sent: 0 } }
+  must(await supabase.from('notifications').insert(n).select())
+  await refresh()
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    const r = await fetch('/api/notify', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify(n) })
+    return r.ok ? await r.json() : { sent: 0, error: true }
+  } catch { return { sent: 0, error: true } }
+}
+export const VAPID_PUBLIC_KEY = 'BCmCrRonL3_YMbMa3KGQkahICOR1TuUMzGfTJYT498zgydEOznPfYMqWg0amsoqOn1S3msfLPM8rufxzCSWIMgQ'
+const b64 = (s) => { const p = '='.repeat((4 - (s.length % 4)) % 4); const r = atob((s + p).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(r, (c) => c.charCodeAt(0)) }
+export function pushSupport() {
+  if (!REMOTE) return 'demo'
+  if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return 'unsupported'
+  return Notification.permission // 'default' | 'granted' | 'denied'
+}
+export async function enablePush() {
+  const st = pushSupport()
+  if (st === 'demo') throw new Error('Disponible avec la vraie base.')
+  if (st === 'unsupported') throw new Error('Sur iPhone, ajoute d’abord VibeStore à l’écran d’accueil (Partager > Sur l’écran d’accueil), puis rouvre l’app depuis l’icône.')
+  const perm = await Notification.requestPermission()
+  if (perm !== 'granted') throw new Error('Notifications refusées. Tu peux les autoriser dans les réglages du navigateur.')
+  const reg = await navigator.serviceWorker.ready
+  const sub = (await reg.pushManager.getSubscription()) || (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64(VAPID_PUBLIC_KEY) }))
+  const j = sub.toJSON()
+  const { data: { session } } = await supabase.auth.getSession()
+  const { error } = await supabase.from('push_subscriptions').upsert(
+    { endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth, user_id: session ? session.user.id : null },
+    { onConflict: 'endpoint', ignoreDuplicates: true })
+  if (error) throw new Error(frError(error.message))
+  return true
+}

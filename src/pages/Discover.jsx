@@ -2,15 +2,36 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useApp } from '../lib/AppContext'
 import { useDb, useUser, catalog, listenRight, mmss, PREVIEW_SECONDS } from '../lib/store'
-import { AddButton, Cover, Empty } from '../components/ui'
+import { AddButton, Cover, Empty, Clip } from '../components/ui'
+import { parseLyrics, currentLine } from '../lib/lyrics'
 import { toggleFav, useFavs } from '../lib/favs'
+
+function Lyrics({ t, on, pos, onClose }) {
+  const { lines, timed } = useMemo(() => parseLyrics(t.lyrics), [t.lyrics])
+  const cur = timed && on ? currentLine(lines, pos) : -1
+  const ref = useRef(null)
+  useEffect(() => {
+    const box = ref.current
+    if (cur < 0 || !box || !box.children[cur]) return
+    const el = box.children[cur]
+    box.scrollTo({ top: el.offsetTop - box.clientHeight / 2 + el.clientHeight / 2, behavior: 'smooth' })
+  }, [cur])
+  return (
+    <div className="lyrics" role="dialog" aria-label={`Paroles de ${t.title}`}>
+      <header><b>{t.title}</b><button className="iconbtn" type="button" onClick={onClose} aria-label="Fermer les paroles">✕</button></header>
+      <div className="lines" ref={ref}>{lines.map((l, i) => <p key={i} className={'ln' + (i === cur ? ' now' : '')}>{l.text}</p>)}</div>
+    </div>
+  )
+}
 
 // Flux vertical façon « TikTok » : un titre par écran, l'aperçu se lance au défilement.
 export default function Discover() {
   const db = useDb()
   const user = useUser()
   const nav = useNavigate()
-  const { track, playing, pos, mode, play, ended } = useApp()
+  const { track, playing, pos, mode, play, toggle, ended } = useApp()
+  const [lyr, setLyr] = useState(null)
+  const [clip, setClip] = useState(null)
   const favs = useFavs()
   const [toast, setToast] = useState('')
   const { tracks } = catalog(db)
@@ -87,7 +108,16 @@ export default function Discover() {
               )}
               <AddButton type="track" id={t.id} price={t.price} />
             </div>
+            {lyr === t.id && <Lyrics t={t} on={on} pos={pos} onClose={() => setLyr(null)} />}
+            {clip === t.id && (
+              <div className="modal">
+                <Clip url={t.album.videoUrl} />
+                <button className="btn small ghost" type="button" onClick={() => setClip(null)}>Fermer le clip</button>
+              </div>
+            )}
             <div className="slidetools">
+              {t.lyrics && <button className="iconbtn" type="button" onClick={() => { setLyr(t.id); if (!on || !playing) play(t) }} aria-label="Paroles">♪</button>}
+              {t.album.videoUrl && <button className="iconbtn" type="button" onClick={() => { if (on && playing) toggle(); setClip(t.id) }} aria-label="Voir le clip">🎬</button>}
               <button className={'iconbtn' + (favs.includes(t.id) ? ' on' : '')} type="button" onClick={() => toggleFav(t.id)} aria-pressed={favs.includes(t.id)} aria-label={favs.includes(t.id) ? 'Retirer des favoris' : 'Ajouter aux favoris'}>{favs.includes(t.id) ? '♥' : '♡'}</button>
               <button className="iconbtn" type="button" onClick={() => share(t)} aria-label="Partager">↗</button>
             </div>

@@ -1,6 +1,6 @@
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useApp } from '../lib/AppContext'
-import { useDb, useUser, signOut, trialDaysLeft, mmss, PREVIEW_SECONDS, fcfa } from '../lib/store'
+import { useDb, useUser, useUnread, signOut, trialDaysLeft, mmss, PREVIEW_SECONDS, fcfa } from '../lib/store'
 import { Cover } from './ui'
 
 function Player() {
@@ -43,6 +43,7 @@ export default function Layout() {
   const db = useDb()
   const { cart } = useApp()
   const nav = useNavigate()
+  const unread = useUnread()
 
   return (
     <>
@@ -56,6 +57,10 @@ export default function Layout() {
             {user && <NavLink to="/bibliotheque" className="mhide">Ma musique</NavLink>}
             {user && user.role === 'artist' && <NavLink to="/studio">Studio</NavLink>}
             {user && user.role === 'admin' && <NavLink to="/admin">Admin</NavLink>}
+            <NavLink to="/notifications" className="bell" aria-label={`Notifications${unread ? ` (${unread} nouvelles)` : ''}`}>
+              <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 17V11a6 6 0 1112 0v6l1.5 2h-15L6 17zM10 21h4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              {unread > 0 && <b className="dot">{unread > 9 ? '9+' : unread}</b>}
+            </NavLink>
             <NavLink to="/panier" className="mhide">Panier ({cart.length})</NavLink>
             {user ? (
               <button className="linkbtn" type="button" onClick={() => { signOut(); nav('/') }}>Sortir</button>

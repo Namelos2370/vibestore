@@ -273,3 +273,46 @@ drop policy if exists "titres: suppression admin" on public.tracks;
 create policy "artistes: suppression admin" on public.artists for delete using (public.is_admin());
 create policy "sorties: suppression admin" on public.releases for delete using (public.is_admin());
 create policy "titres: suppression admin" on public.tracks for delete using (public.is_admin());
+
+-- ============================================================
+-- Paroles, clips, notifications (v0.4)
+-- ============================================================
+alter table public.tracks   add column if not exists lyrics text not null default '';       -- paroles (format LRC : [mm:ss.xx] ligne)
+alter table public.releases add column if not exists video_url text;                         -- clip : lien YouTube ou fichier du stockage
+
+-- Annonces affichées dans l'app (nouvelle sortie, message de l'équipe). Lecture publique, écriture admin.
+create table if not exists public.notifications (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  body text not null default '',
+  url text not null default '/',
+  created_at timestamptz not null default now()
+);
+alter table public.notifications enable row level security;
+drop policy if exists "notifications: lecture publique" on public.notifications;
+drop policy if exists "notifications: ajout admin" on public.notifications;
+drop policy if exists "notifications: suppression admin" on public.notifications;
+create policy "notifications: lecture publique" on public.notifications for select using (true);
+create policy "notifications: ajout admin" on public.notifications for insert with check (public.is_admin());
+create policy "notifications: suppression admin" on public.notifications for delete using (public.is_admin());
+
+-- Abonnements aux notifications push (un par appareil). Le navigateur peut s'abonner ; seul le serveur les lit.
+create table if not exists public.push_subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references public.profiles(id) on delete set null,
+  endpoint text not null unique,
+  p256dh text not null,
+  auth text not null,
+  created_at timestamptz not null default now()
+);
+alter table public.push_subscriptions enable row level security;
+drop policy if exists "push: abonnement libre" on public.push_subscriptions;
+create policy "push: abonnement libre" on public.push_subscriptions for insert with check (true);
+
+-- Clips vidéo (fichiers jusqu'à 50 Mo) : lecture publique, écriture admin.
+insert into storage.buckets (id, name, public, file_size_limit) values ('videos', 'videos', true, 52428800) on conflict (id) do nothing;
+drop policy if exists "videos: lecture publique" on storage.objects;
+drop policy if exists "videos: écriture admin" on storage.objects;
+create policy "videos: lecture publique" on storage.objects for select using (bucket_id = 'videos');
+create policy "videos: écriture admin" on storage.objects for all
+  using (bucket_id = 'videos' and public.is_admin()) with check (bucket_id = 'videos' and public.is_admin());

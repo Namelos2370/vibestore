@@ -1,5 +1,5 @@
 // Service worker VibeStore : garde l'interface hors ligne, ne met jamais l'audio en cache.
-const CACHE = 'vibestore-shell-v1'
+const CACHE = 'vibestore-shell-v2'
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(['/', '/manifest.webmanifest', '/icon-192.png'])))
   self.skipWaiting()
@@ -23,4 +23,21 @@ self.addEventListener('fetch', (e) => {
       return res
     }))
   )
+})
+
+// Notifications push
+self.addEventListener('push', (e) => {
+  let d = {}
+  try { d = e.data.json() } catch { d = { title: 'VibeStore', body: e.data ? e.data.text() : '' } }
+  e.waitUntil(self.registration.showNotification(d.title || 'VibeStore', {
+    body: d.body || '', icon: '/icon-192.png', badge: '/favicon.png', data: { url: d.url || '/' },
+  }))
+})
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close()
+  const url = (e.notification.data && e.notification.data.url) || '/'
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((cs) => {
+    for (const c of cs) { if ('focus' in c) { c.navigate(url); return c.focus() } }
+    return self.clients.openWindow(url)
+  }))
 })
