@@ -105,8 +105,8 @@ function ReleaseForm({ admin, artists, preset }) {
           <label className="field grow2"><span>Titre {i + 1}</span><input id={'tt' + i} value={r.title} onChange={upd(i, 'title')} /></label>
           <label className="field"><span>Prix (FCFA, min. {min})</span><input id={'tp' + i} type="number" min={min} step="100" value={r.price} onChange={upd(i, 'price')} /></label>
           <label className="field"><span>Durée (s, auto avec un fichier)</span><input id={'td' + i} type="number" min="30" value={r.duration} onChange={upd(i, 'duration')} /></label>
-          <label className="field grow2"><span>Fichier audio (WAV ou MP3){r.audioName ? ` : ${r.audioName}` : ''}</span>
-            <input id={'ta' + i} type="file" accept="audio/*" onChange={pickAudio(i)} />
+          <label className="field grow2"><span>Fichier audio (MP3, M4A ou WAV){r.audioName ? ` : ${r.audioName}` : ''}</span>
+            <input id={'ta' + i} type="file" onChange={pickAudio(i)} />
           </label>
         </div>
       ))}
