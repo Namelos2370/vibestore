@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useDb, useUser, catalog, fcfa, trialDaysLeft, MIN_PRICE } from '../lib/store'
-import { AlbumCard, TrackRow } from '../components/ui'
+import { AlbumCard, TrackRow, Empty } from '../components/ui'
 
 export default function Home() {
   const db = useDb()
@@ -27,12 +27,12 @@ export default function Home() {
 
       <section>
         <h2>Tendances</h2>
-        <ul className="tracks">{trending.map((t) => <TrackRow key={t.id} t={t} />)}</ul>
+        {trending.length ? <ul className="tracks">{trending.map((t) => <TrackRow key={t.id} t={t} />)}</ul> : <Empty>Les premiers titres arrivent bientôt.</Empty>}
       </section>
 
       <section>
         <h2>Nouveautés</h2>
-        <div className="grid">{news.map((al) => <AlbumCard key={al.id} al={al} />)}</div>
+        {news.length ? <div className="grid">{news.map((al) => <AlbumCard key={al.id} al={al} />)}</div> : <Empty>Les premières sorties arrivent bientôt.</Empty>}
       </section>
 
       <section className="band">

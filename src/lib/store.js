@@ -3,7 +3,7 @@
 // tous les accès passent par les fonctions de ce fichier.
 import { useSyncExternalStore } from 'react'
 
-const KEY = 'vibestore.db.v2'
+const KEY = 'vibestore.db.v3'
 const SESSION = 'vibestore.session'
 const DAY = 86400000
 
@@ -15,36 +15,14 @@ const uid = (p) => p + Math.random().toString(36).slice(2, 9)
 
 function seed() {
   const now = Date.now()
+  // Catalogue vide : les artistes et leurs titres sont ajoutés par VibeStore depuis l'admin.
+  // Compte équipe (démonstration, stocké dans le navigateur) : admin@vibestore.demo / admin123
   const users = [
     { id: 'u-admin', email: 'admin@vibestore.demo', password: 'admin123', name: 'Admin VibeStore', role: 'admin', artistStatus: 'none', createdAt: now, trialEndsAt: now + TRIAL_DAYS * DAY },
-    { id: 'u-nadege', email: 'artiste@vibestore.demo', password: 'artiste123', name: 'Nadège Ewané', role: 'artist', artistStatus: 'approved', createdAt: now, trialEndsAt: now + TRIAL_DAYS * DAY },
-    { id: 'u-kevin', email: 'kevin@vibestore.demo', password: 'kevin123', name: 'Kévin Mbarga', role: 'artist', artistStatus: 'approved', createdAt: now, trialEndsAt: now + TRIAL_DAYS * DAY },
-    { id: 'u-amina', email: 'amina@vibestore.demo', password: 'amina123', name: 'Amina Fotso', role: 'artist', artistStatus: 'approved', createdAt: now, trialEndsAt: now + TRIAL_DAYS * DAY },
   ]
-  // Les artistes sont créés uniquement par VibeStore (admin). account : 'active' | 'invited'.
-  const artists = [
-    { id: 'a-nadege', userId: 'u-nadege', name: 'Nadège Ewané', genre: 'Afro-soul', bio: 'Voix douce de Yaoundé, entre afro-soul et makossa.', status: 'approved', account: 'active', createdAt: now },
-    { id: 'a-kevin', userId: 'u-kevin', name: 'Kévin Mbarga', genre: 'Bikutsi urbain', bio: 'Beats de nuit, bikutsi moderne et sons urbains.', status: 'approved', account: 'active', createdAt: now },
-    { id: 'a-amina', userId: 'u-amina', name: 'Amina Fotso', genre: 'Gospel, ndolé', bio: 'Chanteuse de l’Ouest, inspirations ndolé et gospel.', status: 'approved', account: 'invited', createdAt: now },
-  ]
-  const albums = [
-    { id: 'al-1', artistId: 'a-nadege', title: 'Matin à Mokolo', kind: 'album', color: '#8B5CF6', status: 'approved', createdAt: now - 3 * DAY },
-    { id: 'al-2', artistId: 'a-kevin', title: 'Nuits de Yaoundé', kind: 'album', color: '#22D3C5', status: 'approved', createdAt: now - 2 * DAY },
-    { id: 'al-3', artistId: 'a-nadege', title: 'Route de l’Ouest', kind: 'single', color: '#F472B6', status: 'approved', createdAt: now - 1 * DAY },
-  ]
-  const tracks = [
-    { id: 't-1', albumId: 'al-1', artistId: 'a-nadege', title: 'Matin à Mokolo', duration: 214, price: 1000, seed: 1, status: 'approved', plays: 128 },
-    { id: 't-2', albumId: 'al-1', artistId: 'a-nadege', title: 'Marché de Mfoundi', duration: 198, price: 1000, seed: 2, status: 'approved', plays: 96 },
-    { id: 't-3', albumId: 'al-1', artistId: 'a-nadege', title: 'Pluie de juillet', duration: 241, price: 1000, seed: 3, status: 'approved', plays: 74 },
-    { id: 't-4', albumId: 'al-2', artistId: 'a-kevin', title: 'Yaoundé Nuit', duration: 187, price: 1000, seed: 4, status: 'approved', plays: 210 },
-    { id: 't-5', albumId: 'al-2', artistId: 'a-kevin', title: 'Bikutsi 237', duration: 242, price: 1200, seed: 5, status: 'approved', plays: 183 },
-    { id: 't-6', albumId: 'al-2', artistId: 'a-kevin', title: 'Dernier bus', duration: 205, price: 1000, seed: 6, status: 'approved', plays: 61 },
-    { id: 't-7', albumId: 'al-3', artistId: 'a-nadege', title: 'Route de l’Ouest', duration: 226, price: 1500, seed: 7, status: 'approved', plays: 142 },
-  ]
-  // prix d'album : fixé à l'ajout de la sortie (au moins le prix minimum, 500 FCFA)
-  albums[0].price = 2500
-  albums[1].price = 3000
-  albums[2].price = 1500
+  const artists = []
+  const albums = []
+  const tracks = []
   return {
     users, artists, albums, tracks,
     purchases: [],

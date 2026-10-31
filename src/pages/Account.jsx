@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useUser, signIn, signUp, resetDemo, trialDaysLeft } from '../lib/store'
+import { useUser, signIn, signUp, trialDaysLeft } from '../lib/store'
 
 export default function Account() {
   const user = useUser()
@@ -28,12 +28,10 @@ export default function Account() {
     e.preventDefault()
     setErr('')
     try {
-      if (mode === 'in') signIn(f.email, f.password)
-      else signUp(f)
-      nav('/explorer')
+      const u = mode === 'in' ? signIn(f.email, f.password) : signUp(f)
+      nav(u.role === 'admin' ? '/admin' : u.role === 'artist' ? '/studio' : '/decouvrir')
     } catch (x) { setErr(x.message) }
   }
-  function quick(email, password) { try { signIn(email, password); nav('/') } catch (x) { setErr(x.message) } }
 
   return (
     <>
@@ -49,15 +47,7 @@ export default function Account() {
         </button>
       </form>
 
-      <section className="panel demo">
-        <h2>Comptes de démonstration</h2>
-        <div className="row wrap">
-          <button className="btn small ghost" type="button" onClick={() => quick('admin@vibestore.demo', 'admin123')}>Admin</button>
-          <button className="btn small ghost" type="button" onClick={() => quick('artiste@vibestore.demo', 'artiste123')}>Artiste (Nadège)</button>
-          <button className="btn small ghost" type="button" onClick={() => quick('amina@vibestore.demo', 'amina123')}>Artiste invitée (Amina)</button>
-          <button className="btn small ghost" type="button" onClick={() => { resetDemo(); setErr('') }}>Réinitialiser la démo</button>
-        </div>
-      </section>
+      <p className="muted small">Équipe VibeStore : connecte-toi avec le compte administrateur pour ouvrir le tableau de bord.</p>
     </>
   )
 }
