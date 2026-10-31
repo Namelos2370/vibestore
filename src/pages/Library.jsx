@@ -2,14 +2,17 @@ import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { useDb, useUser, catalog, owns, fcfa } from '../lib/store'
 import { trackAudioUrl } from '../lib/store'
 import { AlbumCard, TrackRow, Empty } from '../components/ui'
+import { useFavs } from '../lib/favs'
 
 export default function Library() {
   const db = useDb()
   const user = useUser()
   const [sp] = useSearchParams()
+  const favs = useFavs()
   if (!user) return <Navigate to="/compte" replace />
   const { albums, tracks } = catalog(db)
   const myTracks = tracks.filter((t) => owns(db, user, { type: 'track', id: t.id }))
+  const favTracks = tracks.filter((t) => favs.includes(t.id))
   const myAlbums = albums.filter((a) => owns(db, user, { type: 'album', id: a.id }))
   const history = db.purchases.filter((p) => p.userId === user.id).sort((a, b) => b.at - a.at)
   const nameOf = (p) => (p.itemType === 'album' ? db.albums.find((a) => a.id === p.itemId)?.title : db.tracks.find((t) => t.id === p.itemId)?.title) || '—'
@@ -19,6 +22,12 @@ export default function Library() {
       <h1 className="h1">Ma musique</h1>
       {sp.get('achat') === 'ok' && <p className="ok" role="status">Merci pour ton achat ! Tes titres sont disponibles en écoute complète et en téléchargement.</p>}
 
+      {favTracks.length > 0 && (
+        <section>
+          <h2>Favoris</h2>
+          <ul className="tracks">{favTracks.map((t) => <TrackRow key={t.id} t={t} />)}</ul>
+        </section>
+      )}
       <section>
         <h2>Albums achetés</h2>
         {myAlbums.length ? <div className="grid">{myAlbums.map((al) => <AlbumCard key={al.id} al={al} />)}</div> : <Empty>Aucun album pour l’instant.</Empty>}

@@ -53,6 +53,8 @@ function ReleaseForm({ admin, artists, preset }) {
   const [albumPrice, setAlbumPrice] = useState(3000)
   const [color, setColor] = useState(COLORS[0])
   const [rows, setRows] = useState([emptyRow()])
+  const [cover, setCover] = useState(null)
+  const [coverKey, setCoverKey] = useState(0)
   const [err, setErr] = useState('')
   const [ok, setOk] = useState('')
   const [busy, setBusy] = useState(false)
@@ -66,8 +68,8 @@ function ReleaseForm({ admin, artists, preset }) {
     e.preventDefault()
     setErr(''); setOk(''); setBusy(true)
     try {
-      await createRelease(admin, { artistId: artistId || preset, title, kind, albumPrice, color, tracks: rows })
-      setTitle(''); setRows([emptyRow()])
+      await createRelease(admin, { artistId: artistId || preset, title, kind, albumPrice, color, tracks: rows, cover })
+      setTitle(''); setRows([emptyRow()]); setCover(null); setCoverKey((k) => k + 1)
       setOk('Sortie publiée dans le catalogue.')
     } catch (x) { setErr(x.message) } finally { setBusy(false) }
   }
@@ -94,7 +96,10 @@ function ReleaseForm({ admin, artists, preset }) {
           </label>
         )}
       </div>
-      <div className="field"><span>Couleur de la pochette (démo)</span>
+      <label className="field"><span>Pochette (image JPG ou PNG){cover ? ` : ${cover.name}` : ''}</span>
+        <input key={coverKey} id="rcover" type="file" onChange={(e) => setCover((e.target.files && e.target.files[0]) || null)} />
+      </label>
+      <div className="field"><span>Couleur de secours si pas d’image</span>
         <div className="row">{COLORS.map((c) => (
           <button key={c} type="button" aria-label={'Couleur ' + c} aria-pressed={color === c} className={'swatch' + (color === c ? ' on' : '')} style={{ background: c }} onClick={() => setColor(c)} />
         ))}</div>

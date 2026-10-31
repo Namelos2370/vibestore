@@ -50,13 +50,13 @@ export default function Layout() {
         <div className="wrap topin">
           <Link to="/" className="brand"><img src="/favicon.png" alt="" width="34" height="34" /><span>Vibe<b>Store</b></span></Link>
           <nav aria-label="Navigation principale">
-            <NavLink to="/" end>Accueil</NavLink>
-            <NavLink to="/decouvrir">Découvrir</NavLink>
-            <NavLink to="/explorer">Explorer</NavLink>
-            {user && <NavLink to="/bibliotheque">Ma musique</NavLink>}
+            <NavLink to="/" end className="mhide">Accueil</NavLink>
+            <NavLink to="/decouvrir" className="mhide">Découvrir</NavLink>
+            <NavLink to="/explorer" className="mhide">Explorer</NavLink>
+            {user && <NavLink to="/bibliotheque" className="mhide">Ma musique</NavLink>}
             {user && user.role === 'artist' && <NavLink to="/studio">Studio</NavLink>}
             {user && user.role === 'admin' && <NavLink to="/admin">Admin</NavLink>}
-            <NavLink to="/panier">Panier ({cart.length})</NavLink>
+            <NavLink to="/panier" className="mhide">Panier ({cart.length})</NavLink>
             {user ? (
               <button className="linkbtn" type="button" onClick={() => { signOut(); nav('/') }}>Sortir</button>
             ) : (
@@ -71,6 +71,20 @@ export default function Layout() {
         <span>Mode démonstration : données d’exemple, paiement simulé.</span>
       </footer>
       <Player />
+      <nav className="tabbar" aria-label="Navigation mobile">
+        {[
+          ['/', 'Accueil', 'M4 11l8-7 8 7v9h-5v-6H9v6H4z', true],
+          ['/decouvrir', 'Découvrir', 'M5 4h14v16H5zM9 9l6 3-6 3z'],
+          ['/explorer', 'Explorer', 'M11 4a7 7 0 100 14 7 7 0 000-14zm5 12l4.5 4.5'],
+          [user ? '/bibliotheque' : '/compte', 'Ma musique', 'M9 18V6l10-2v12M9 18a3 3 0 11-6 0 3 3 0 016 0zm10-2a3 3 0 11-6 0 3 3 0 016 0z'],
+          ['/panier', `Panier${cart.length ? ` (${cart.length})` : ''}`, 'M3 4h2.5l2 11h10l2-8H7M9 20h.01M17 20h.01'],
+        ].map(([to, label, d, end]) => (
+          <NavLink key={label} to={to} end={!!end}>
+            <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d={d} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            <span>{label}</span>
+          </NavLink>
+        ))}
+      </nav>
     </>
   )
 }

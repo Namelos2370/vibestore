@@ -1,12 +1,13 @@
 import { Link } from 'react-router-dom'
 import { useApp } from '../lib/AppContext'
-import { useDb, useUser, owns, fcfa, mmss } from '../lib/store'
+import { useDb, useUser, owns, fcfa, mmss, coverUrl } from '../lib/store'
 
 export function Cover({ album, size }) {
   const c = album?.color || '#8B5CF6'
+  const img = coverUrl(album?.coverPath)
   return (
     <div className="cover" style={{ '--c': c, ...(size ? { width: size, height: size } : {}) }} aria-hidden="true">
-      <span>{(album?.title || '?').charAt(0)}</span>
+      {img ? <img src={img} alt="" loading="lazy" /> : <span>{(album?.title || '?').charAt(0)}</span>}
     </div>
   )
 }

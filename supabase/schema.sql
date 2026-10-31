@@ -253,3 +253,13 @@ create policy "audio: lecture acheteurs" on storage.objects for select using (
                   and ((p.item_type = 'track' and p.item_id = t.id) or (p.item_type = 'release' and p.item_id = t.release_id)))
         or exists (select 1 from public.artists a where a.id = t.artist_id and a.user_id = auth.uid())
       )));
+
+-- ============================================================
+-- Pochettes (v0.3c) — images publiques
+-- ============================================================
+insert into storage.buckets (id, name, public, file_size_limit) values ('covers', 'covers', true, 5242880) on conflict (id) do nothing;
+drop policy if exists "covers: lecture publique" on storage.objects;
+drop policy if exists "covers: écriture admin" on storage.objects;
+create policy "covers: lecture publique" on storage.objects for select using (bucket_id = 'covers');
+create policy "covers: écriture admin" on storage.objects for all
+  using (bucket_id = 'covers' and public.is_admin()) with check (bucket_id = 'covers' and public.is_admin());

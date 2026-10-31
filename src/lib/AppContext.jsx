@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, useCallback } from 'react'
-import { useDb, useUser, listenRight, countPlay, trackAudioUrl, PREVIEW_SECONDS } from './store'
+import { useDb, useUser, listenRight, countPlay, trackAudioUrl, coverUrl, PREVIEW_SECONDS } from './store'
 
 const Ctx = createContext(null)
 export const useApp = () => useContext(Ctx)
@@ -18,6 +18,7 @@ export function AppProvider({ children }) {
   const [playing, setPlaying] = useState(false)
   const [pos, setPos] = useState(0)
   const [notice, setNotice] = useState(null)
+  const [ended, setEnded] = useState(0)
   const modeRef = useRef('preview')
   const reqRef = useRef(0)
 
@@ -37,7 +38,7 @@ export function AppProvider({ children }) {
         setNotice({ type: 'previewEnd' })
       }
     }
-    const onEnd = () => setPlaying(false)
+    const onEnd = () => { setPlaying(false); setEnded((n) => n + 1) }
     a.addEventListener('timeupdate', onTime)
     a.addEventListener('ended', onEnd)
     return () => { a.removeEventListener('timeupdate', onTime); a.removeEventListener('ended', onEnd) }
@@ -65,6 +66,15 @@ export function AppProvider({ children }) {
       if (req !== reqRef.current) return
       a.src = url
       a.currentTime = 0
+      if ('mediaSession' in navigator && window.MediaMetadata) {
+        const img = coverUrl(t.album?.coverPath)
+        navigator.mediaSession.metadata = new window.MediaMetadata({
+          title: t.title, artist: t.artist?.name || 'VibeStore', album: t.album?.title || '',
+          artwork: [{ src: img || '/icon-512.png', sizes: '512x512', type: img ? 'image/jpeg' : 'image/png' }],
+        })
+        navigator.mediaSession.setActionHandler('play', () => { a.play(); setPlaying(true) })
+        navigator.mediaSession.setActionHandler('pause', () => { a.pause(); setPlaying(false) })
+      }
       return a.play().then(() => setPlaying(true)).catch(() => setPlaying(false))
     }).catch((e) => { setPlaying(false); setNotice({ type: 'error', message: e.message }) })
   }, [db, user, track])
@@ -90,10 +100,10 @@ export function AppProvider({ children }) {
   const clearCart = useCallback(() => setCart([]), [])
 
   const value = useMemo(() => ({
-    track, mode, playing, pos, notice, setNotice, play, toggle, seek,
+    track, mode, playing, pos, notice, setNotice, play, toggle, seek, ended,
     cart, addToCart, removeFromCart, clearCart,
     audioDuration: () => (audioRef.current && audioRef.current.duration) || DEMO_SECONDS,
-  }), [track, mode, playing, pos, notice, play, toggle, seek, cart, addToCart, removeFromCart, clearCart])
+  }), [track, mode, playing, pos, notice, ended, play, toggle, seek, cart, addToCart, removeFromCart, clearCart])
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

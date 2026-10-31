@@ -4,7 +4,7 @@
 // Les écrans lisent un cache en mémoire (db) ; les actions qui modifient les données sont asynchrones.
 import { useSyncExternalStore } from 'react'
 import { supabase } from './supabase'
-import { analyseAudio } from './audioTools'
+import { analyseAudio, resizeImage } from './audioTools'
 import { demoAudioUrl } from './audio'
 
 const REMOTE = !!supabase
@@ -239,8 +239,8 @@ export function createArtist(admin, { name, contact, genre, bio }) {
 }
 
 /** Ajoute une sortie (album ou single) et ses titres pour un artiste. Publiée tout de suite, sans validation. */
-export function createRelease(admin, { artistId, title, kind, albumPrice, color, tracks }) {
-  if (REMOTE) return remoteCreateRelease(admin, { artistId, title, kind, albumPrice, color, tracks })
+export function createRelease(admin, { artistId, title, kind, albumPrice, color, tracks, cover }) {
+  if (REMOTE) return remoteCreateRelease(admin, { artistId, title, kind, albumPrice, color, tracks, cover })
   requireAdmin(admin)
   const artist = db.artists.find((a) => a.id === artistId)
   if (!artist) throw new Error('Choisis un artiste.')
@@ -294,7 +294,7 @@ const frError = (m = '') => {
 const must = ({ data, error }) => { if (error) throw new Error(frError(error.message)); return data }
 
 const mapArtist = (a) => ({ id: a.id, userId: a.user_id, name: a.name, genre: a.genre, bio: a.bio, status: a.status, account: a.account, createdAt: ms(a.created_at) })
-const mapAlbum = (r) => ({ id: r.id, artistId: r.artist_id, title: r.title, kind: r.kind, color: r.color, price: r.price, status: r.status, createdAt: ms(r.created_at) })
+const mapAlbum = (r) => ({ coverPath: r.cover_path, id: r.id, artistId: r.artist_id, title: r.title, kind: r.kind, color: r.color, price: r.price, status: r.status, createdAt: ms(r.created_at) })
 const mapTrack = (t) => ({ id: t.id, albumId: t.release_id, artistId: t.artist_id, title: t.title, duration: t.duration, price: t.price, seed: t.seed, audioName: t.audio_name, audioPath: t.audio_path, previewPath: t.preview_path, status: t.status, plays: t.plays })
 const mapPurchase = (p) => ({ id: p.id, userId: p.user_id, itemType: p.item_type === 'release' ? 'album' : 'track', itemId: p.item_id, artistId: p.artist_id, amount: p.amount, commissionPct: Number(p.commission_pct), method: p.method, at: ms(p.created_at) })
 const mapSettings = (s) => ({
@@ -395,7 +395,7 @@ async function remoteCreateArtist(admin, { name, contact, genre, bio }) {
   await refresh()
   return { artist: mapArtist(row), email, tempPassword: null }
 }
-async function remoteCreateRelease(admin, { artistId, title, kind, albumPrice, color, tracks }) {
+async function remoteCreateRelease(admin, { artistId, title, kind, albumPrice, color, tracks, cover }) {
   requireAdmin(admin)
   if (!db.artists.some((a) => a.id === artistId)) throw new Error('Choisis un artiste.')
   if (!title.trim()) throw new Error('Donne un titre à la sortie.')
@@ -425,7 +425,15 @@ async function remoteCreateRelease(admin, { artistId, title, kind, albumPrice, c
     prepared.push(row)
   }
   // 2) Sortie et titres
-  const rel = must(await supabase.from('releases').insert({ artist_id: artistId, title: title.trim(), kind, color, price }).select().single())
+  const relId = crypto.randomUUID()
+  let coverPath = null
+  if (cover) {
+    const img = await resizeImage(cover)
+    coverPath = `${relId}.jpg`
+    const upc = await supabase.storage.from('covers').upload(coverPath, img, { contentType: 'image/jpeg', upsert: true })
+    if (upc.error) throw new Error('Envoi de la pochette impossible : ' + frError(upc.error.message))
+  }
+  const rel = must(await supabase.from('releases').insert({ id: relId, artist_id: artistId, title: title.trim(), kind, color, price, cover_path: coverPath }).select().single())
   const ins = await supabase.from('tracks').insert(prepared.map((r, i) => ({
     ...r, release_id: rel.id, artist_id: artistId, seed: Math.floor(Math.random() * 90) + 10 + i,
   })))
@@ -460,4 +468,8 @@ export async function trackAudioUrl(t, mode, { download = false } = {}) {
     return supabase.storage.from('previews').getPublicUrl(t.previewPath).data.publicUrl
   }
   return demoAudioUrl(t.seed, download ? 60 : 60)
+}
+
+export function coverUrl(path) {
+  return REMOTE && path ? supabase.storage.from('covers').getPublicUrl(path).data.publicUrl : null
 }
