@@ -3,11 +3,11 @@
 // tous les accès passent par les fonctions de ce fichier.
 import { useSyncExternalStore } from 'react'
 
-const KEY = 'vibestore.db.v1'
+const KEY = 'vibestore.db.v2'
 const SESSION = 'vibestore.session'
 const DAY = 86400000
 
-export const MIN_PRICE = 1000
+export const MIN_PRICE = 500
 export const PREVIEW_SECONDS = 30
 export const TRIAL_DAYS = 30
 
@@ -19,12 +19,13 @@ function seed() {
     { id: 'u-admin', email: 'admin@vibestore.demo', password: 'admin123', name: 'Admin VibeStore', role: 'admin', artistStatus: 'none', createdAt: now, trialEndsAt: now + TRIAL_DAYS * DAY },
     { id: 'u-nadege', email: 'artiste@vibestore.demo', password: 'artiste123', name: 'Nadège Ewané', role: 'artist', artistStatus: 'approved', createdAt: now, trialEndsAt: now + TRIAL_DAYS * DAY },
     { id: 'u-kevin', email: 'kevin@vibestore.demo', password: 'kevin123', name: 'Kévin Mbarga', role: 'artist', artistStatus: 'approved', createdAt: now, trialEndsAt: now + TRIAL_DAYS * DAY },
-    { id: 'u-amina', email: 'amina@vibestore.demo', password: 'amina123', name: 'Amina Fotso', role: 'artist', artistStatus: 'pending', createdAt: now, trialEndsAt: now + TRIAL_DAYS * DAY },
+    { id: 'u-amina', email: 'amina@vibestore.demo', password: 'amina123', name: 'Amina Fotso', role: 'artist', artistStatus: 'approved', createdAt: now, trialEndsAt: now + TRIAL_DAYS * DAY },
   ]
+  // Les artistes sont créés uniquement par VibeStore (admin). account : 'active' | 'invited'.
   const artists = [
-    { id: 'a-nadege', userId: 'u-nadege', name: 'Nadège Ewané', bio: 'Voix douce de Yaoundé, entre afro-soul et makossa.', status: 'approved' },
-    { id: 'a-kevin', userId: 'u-kevin', name: 'Kévin Mbarga', bio: 'Beats de nuit, bikutsi moderne et sons urbains.', status: 'approved' },
-    { id: 'a-amina', userId: 'u-amina', name: 'Amina Fotso', bio: 'Chanteuse de l’Ouest, inspirations ndolé et gospel.', status: 'pending' },
+    { id: 'a-nadege', userId: 'u-nadege', name: 'Nadège Ewané', genre: 'Afro-soul', bio: 'Voix douce de Yaoundé, entre afro-soul et makossa.', status: 'approved', account: 'active', createdAt: now },
+    { id: 'a-kevin', userId: 'u-kevin', name: 'Kévin Mbarga', genre: 'Bikutsi urbain', bio: 'Beats de nuit, bikutsi moderne et sons urbains.', status: 'approved', account: 'active', createdAt: now },
+    { id: 'a-amina', userId: 'u-amina', name: 'Amina Fotso', genre: 'Gospel, ndolé', bio: 'Chanteuse de l’Ouest, inspirations ndolé et gospel.', status: 'approved', account: 'invited', createdAt: now },
   ]
   const albums = [
     { id: 'al-1', artistId: 'a-nadege', title: 'Matin à Mokolo', kind: 'album', color: '#8B5CF6', status: 'approved', createdAt: now - 3 * DAY },
@@ -40,7 +41,7 @@ function seed() {
     { id: 't-6', albumId: 'al-2', artistId: 'a-kevin', title: 'Dernier bus', duration: 205, price: 1000, seed: 6, status: 'approved', plays: 61 },
     { id: 't-7', albumId: 'al-3', artistId: 'a-nadege', title: 'Route de l’Ouest', duration: 226, price: 1500, seed: 7, status: 'approved', plays: 142 },
   ]
-  // prix d'album : fixé par l'artiste (au moins 1 000 FCFA)
+  // prix d'album : fixé à l'ajout de la sortie (au moins le prix minimum, 500 FCFA)
   albums[0].price = 2500
   albums[1].price = 3000
   albums[2].price = 1500
@@ -99,7 +100,8 @@ export function useUser() {
   const id = sessionId()
   return db.users.find((u) => u.id === id) || null
 }
-export function signUp({ email, password, name, wantsArtist }) {
+// L'inscription libre crée toujours un compte auditeur. Les comptes artistes sont créés par VibeStore (createArtist).
+export function signUp({ email, password, name }) {
   email = email.trim().toLowerCase()
   if (!email || !password || !name.trim()) throw new Error('Remplis tous les champs.')
   if (password.length < 6) throw new Error('Le mot de passe doit avoir au moins 6 caractères.')
@@ -107,12 +109,10 @@ export function signUp({ email, password, name, wantsArtist }) {
   const now = Date.now()
   const user = {
     id: uid('u-'), email, password, name: name.trim(),
-    role: wantsArtist ? 'artist' : 'listener',
-    artistStatus: wantsArtist ? 'pending' : 'none',
+    role: 'listener', artistStatus: 'none',
     createdAt: now, trialEndsAt: now + TRIAL_DAYS * DAY,
   }
   db.users.push(user)
-  if (wantsArtist) db.artists.push({ id: uid('a-'), userId: user.id, name: user.name, bio: '', status: 'pending' })
   localStorage.setItem(SESSION, user.id)
   save()
   return user
@@ -120,6 +120,10 @@ export function signUp({ email, password, name, wantsArtist }) {
 export function signIn(email, password) {
   const u = db.users.find((x) => x.email === email.trim().toLowerCase() && x.password === password)
   if (!u) throw new Error('Email ou mot de passe incorrect.')
+  if (u.role === 'artist') {
+    const a = db.artists.find((x) => x.userId === u.id)
+    if (a && a.account === 'invited') a.account = 'active' // première connexion : le compte devient actif
+  }
   localStorage.setItem(SESSION, u.id)
   save()
   return u
@@ -194,52 +198,61 @@ export function checkout(user, cartItems, methodId) {
   return created
 }
 
-/* ---------- Espace artiste ---------- */
+/* ---------- Espace artiste (lecture seule : VibeStore gère le catalogue) ---------- */
 export function myArtist(d, user) {
   return user ? d.artists.find((a) => a.userId === user.id) || null : null
 }
-export function updateArtist(id, patch) {
-  const a = db.artists.find((x) => x.id === id)
-  if (a) Object.assign(a, patch)
-  save()
+
+/* ---------- Administration (VibeStore uniquement) ---------- */
+const slug = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '.').replace(/^\.+|\.+$/g, '')
+function requireAdmin(user) {
+  if (!user || user.role !== 'admin') throw new Error('Action réservée à l’équipe VibeStore.')
 }
-export function createRelease(user, { title, kind, albumPrice, color, tracks }) {
-  const artist = myArtist(db, user)
-  if (!artist || artist.status !== 'approved') throw new Error('Ton profil artiste doit d’abord être validé.')
+
+/** Crée le compte d'un artiste. En production : invitation par Supabase Auth (lien pour choisir un mot de passe). */
+export function createArtist(admin, { name, contact, genre, bio }) {
+  requireAdmin(admin)
+  name = (name || '').trim()
+  contact = (contact || '').trim()
+  if (!name) throw new Error('Indique le nom de l’artiste.')
+  if (!contact) throw new Error('Indique un email ou un numéro de téléphone pour envoyer l’invitation.')
+  if (db.artists.some((a) => a.name.toLowerCase() === name.toLowerCase())) throw new Error('Un artiste porte déjà ce nom.')
+  const email = contact.includes('@') ? contact.toLowerCase() : `${slug(name)}@artistes.vibestore`
+  if (db.users.some((u) => u.email === email)) throw new Error('Un compte existe déjà avec ce contact.')
+  const tempPassword = Math.random().toString(36).slice(2, 10)
+  const now = Date.now()
+  const user = { id: uid('u-'), email, password: tempPassword, name, role: 'artist', artistStatus: 'approved', contact, createdAt: now, trialEndsAt: now + TRIAL_DAYS * DAY }
+  const artist = { id: uid('a-'), userId: user.id, name, genre: (genre || '').trim(), bio: (bio || '').trim(), status: 'approved', account: 'invited', createdAt: now }
+  db.users.push(user)
+  db.artists.push(artist)
+  save()
+  return { artist, email, tempPassword }
+}
+
+/** Ajoute une sortie (album ou single) et ses titres pour un artiste. Publiée tout de suite, sans validation. */
+export function createRelease(admin, { artistId, title, kind, albumPrice, color, tracks }) {
+  requireAdmin(admin)
+  const artist = db.artists.find((a) => a.id === artistId)
+  if (!artist) throw new Error('Choisis un artiste.')
   if (!title.trim()) throw new Error('Donne un titre à la sortie.')
   const list = tracks.filter((t) => t.title.trim())
   if (!list.length) throw new Error('Ajoute au moins un titre.')
   const min = db.settings.minPrice
-  for (const t of list) if (Number(t.price) < min) throw new Error(`Le prix minimum est de ${min} FCFA par titre.`)
-  if (kind === 'album' && Number(albumPrice) < min) throw new Error(`Le prix minimum est de ${min} FCFA pour l’album.`)
+  for (const t of list) if (!(Number(t.price) >= min)) throw new Error(`Le prix minimum est de ${min} FCFA par titre.`)
+  if (kind === 'album' && !(Number(albumPrice) >= min)) throw new Error(`Le prix minimum est de ${min} FCFA pour l’album.`)
   const alId = uid('al-')
-  const price = kind === 'album' ? Number(albumPrice) : Number(list[0].price)
-  db.albums.push({ id: alId, artistId: artist.id, title: title.trim(), kind, color, price, status: 'pending', createdAt: Date.now() })
-  list.forEach((t, i) =>
+  const final = kind === 'single' ? list.slice(0, 1) : list
+  const price = kind === 'album' ? Number(albumPrice) : Number(final[0].price)
+  db.albums.push({ id: alId, artistId: artist.id, title: title.trim(), kind, color, price, status: 'approved', createdAt: Date.now() })
+  final.forEach((t, i) =>
     db.tracks.push({
       id: uid('t-'), albumId: alId, artistId: artist.id, title: t.title.trim(),
       duration: Number(t.duration) || 180, price: Number(t.price), seed: Math.floor(Math.random() * 90) + 10 + i,
-      status: 'pending', plays: 0,
+      audioName: t.audioName || '', status: 'approved', plays: 0,
     })
   )
   save()
-}
-
-/* ---------- Administration ---------- */
-export function setArtistStatus(id, status) {
-  const a = db.artists.find((x) => x.id === id)
-  if (!a) return
-  a.status = status
-  const u = db.users.find((x) => x.id === a.userId)
-  if (u) u.artistStatus = status
-  save()
-}
-export function setReleaseStatus(albumId, status) {
-  const al = db.albums.find((a) => a.id === albumId)
-  if (!al) return
-  al.status = status
-  db.tracks.forEach((t) => { if (t.albumId === albumId) t.status = status })
-  save()
+  return alId
 }
 export function updateSettings(patch) {
   Object.assign(db.settings, patch)

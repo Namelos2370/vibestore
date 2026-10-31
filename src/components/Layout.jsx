@@ -42,7 +42,6 @@ export default function Layout() {
   const db = useDb()
   const { cart } = useApp()
   const nav = useNavigate()
-  const pending = db.artists.filter((a) => a.status === 'pending').length + db.albums.filter((a) => a.status === 'pending').length
 
   return (
     <>
@@ -54,7 +53,7 @@ export default function Layout() {
             <NavLink to="/explorer">Explorer</NavLink>
             {user && <NavLink to="/bibliotheque">Ma musique</NavLink>}
             {user && user.role === 'artist' && <NavLink to="/studio">Studio</NavLink>}
-            {user && user.role === 'admin' && <NavLink to="/admin">Admin{pending ? ` (${pending})` : ''}</NavLink>}
+            {user && user.role === 'admin' && <NavLink to="/admin">Admin</NavLink>}
             <NavLink to="/panier">Panier ({cart.length})</NavLink>
             {user ? (
               <button className="linkbtn" type="button" onClick={() => { signOut(); nav('/') }}>Sortir</button>

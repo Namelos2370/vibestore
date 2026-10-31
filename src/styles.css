@@ -168,3 +168,10 @@ input:focus, select:focus, textarea:focus { border-color: var(--violet); outline
   .foot { flex-direction: column; }
 }
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; animation: none !important; } }
+
+/* Encadré d'information (studio artiste) */
+.infobox { background: color-mix(in srgb, var(--violet) 20%, var(--bg)); border: 1px solid var(--violet); border-radius: 14px; padding: 18px 22px; margin-block: 18px; }
+.infobox b { display: block; margin-bottom: 4px; }
+.infobox p { margin: 0; color: var(--muted); font-size: 15px; }
+input[type=file] { width: 100%; color: var(--muted); font: 400 14px var(--body); }
+input[type=file]::file-selector-button { background: var(--surface2); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; margin-right: 10px; font: 600 14px var(--body); cursor: pointer; }

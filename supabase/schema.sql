@@ -1,4 +1,5 @@
--- VibeStore — schéma Supabase (Postgres) — v0.1
+-- VibeStore — schéma Supabase (Postgres) — v0.2
+-- Modèle distribution : les artistes et leurs titres sont ajoutés uniquement par l'admin VibeStore.
 -- À exécuter dans l'éditeur SQL de Supabase. Il remplace la base de démonstration du site.
 
 create extension if not exists "pgcrypto";
@@ -17,7 +18,9 @@ create table public.artists (
   user_id uuid not null unique references public.profiles(id) on delete cascade,
   name text not null,
   bio text not null default '',
-  status text not null default 'pending' check (status in ('pending','approved','rejected')),
+  genre text not null default '',
+  account text not null default 'invited' check (account in ('invited','active')),
+  status text not null default 'approved' check (status in ('pending','approved','rejected')),
   created_at timestamptz not null default now()
 );
 
@@ -26,10 +29,10 @@ create table public.releases (
   artist_id uuid not null references public.artists(id) on delete cascade,
   title text not null,
   kind text not null check (kind in ('album','single')),
-  price integer not null check (price >= 1000),            -- FCFA, minimum 1 000
+  price integer not null check (price >= 500),            -- FCFA, minimum 500
   color text not null default '#8B5CF6',
   cover_path text,
-  status text not null default 'pending' check (status in ('pending','approved','rejected')),
+  status text not null default 'approved' check (status in ('pending','approved','rejected')),
   created_at timestamptz not null default now()
 );
 
@@ -39,11 +42,11 @@ create table public.tracks (
   artist_id uuid not null references public.artists(id) on delete cascade,
   title text not null,
   duration integer not null default 180,
-  price integer not null check (price >= 1000),
+  price integer not null check (price >= 500),
   audio_path text,                                         -- fichier complet (bucket privé "audio")
   preview_path text,                                       -- extrait de 30 s (bucket "previews")
   plays integer not null default 0,
-  status text not null default 'pending' check (status in ('pending','approved','rejected')),
+  status text not null default 'approved' check (status in ('pending','approved','rejected')),
   created_at timestamptz not null default now()
 );
 
@@ -67,7 +70,7 @@ create table public.settings (
   promo_commission_pct numeric(5,2) not null default 15,
   promo_months integer not null default 6,
   launch_at timestamptz not null default now(),
-  min_price integer not null default 1000,
+  min_price integer not null default 500,
   payment_methods jsonb not null default
     '[{"id":"momo","label":"MTN Mobile Money","enabled":true},{"id":"om","label":"Orange Money","enabled":true},{"id":"card","label":"Carte bancaire","enabled":false}]'
 );
@@ -80,15 +83,13 @@ language sql stable security definer set search_path = public as $$
 $$;
 
 -- Création automatique du profil à l'inscription
+-- Création automatique du profil à l'inscription : toujours un auditeur.
+-- Les comptes artistes sont créés par VibeStore (invitation depuis l'admin), jamais par inscription libre.
 create or replace function public.handle_new_user() returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
   insert into public.profiles (id, name, role)
-  values (new.id, coalesce(new.raw_user_meta_data->>'name', split_part(new.email,'@',1)),
-          case when (new.raw_user_meta_data->>'wants_artist')::boolean then 'artist' else 'listener' end);
-  if (new.raw_user_meta_data->>'wants_artist')::boolean then
-    insert into public.artists (user_id, name) values (new.id, coalesce(new.raw_user_meta_data->>'name','Artiste'));
-  end if;
+  values (new.id, coalesce(new.raw_user_meta_data->>'name', split_part(new.email,'@',1)), 'listener');
   return new;
 end $$;
 create trigger on_auth_user_created after insert on auth.users
@@ -107,21 +108,20 @@ create policy "profil: modif admin" on public.profiles for update using (public.
 
 create policy "artistes: publics si validés" on public.artists for select
   using (status = 'approved' or user_id = auth.uid() or public.is_admin());
-create policy "artiste: modifier son profil" on public.artists for update using (user_id = auth.uid() or public.is_admin());
+create policy "artistes: ajout par admin" on public.artists for insert with check (public.is_admin());
+create policy "artistes: modif admin" on public.artists for update using (public.is_admin());
 
 create policy "sorties: publiques si validées" on public.releases for select using (
   status = 'approved' or public.is_admin()
   or exists (select 1 from public.artists a where a.id = artist_id and a.user_id = auth.uid()));
-create policy "sorties: création par artiste validé" on public.releases for insert with check (
-  status = 'pending' and exists (select 1 from public.artists a where a.id = artist_id and a.user_id = auth.uid() and a.status = 'approved'));
-create policy "sorties: validation admin" on public.releases for update using (public.is_admin());
+create policy "sorties: ajout par admin" on public.releases for insert with check (public.is_admin());
+create policy "sorties: modif admin" on public.releases for update using (public.is_admin());
 
 create policy "titres: publics si validés" on public.tracks for select using (
   status = 'approved' or public.is_admin()
   or exists (select 1 from public.artists a where a.id = artist_id and a.user_id = auth.uid()));
-create policy "titres: création par artiste validé" on public.tracks for insert with check (
-  status = 'pending' and exists (select 1 from public.artists a where a.id = artist_id and a.user_id = auth.uid() and a.status = 'approved'));
-create policy "titres: validation admin" on public.tracks for update using (public.is_admin());
+create policy "titres: ajout par admin" on public.tracks for insert with check (public.is_admin());
+create policy "titres: modif admin" on public.tracks for update using (public.is_admin());
 
 create policy "achats: voir les siens / artiste / admin" on public.purchases for select using (
   user_id = auth.uid() or public.is_admin()

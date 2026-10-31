@@ -38,11 +38,11 @@ export default function Home() {
       <section className="band">
         <h2>Tu es artiste ?</h2>
         <ul className="plain">
-          <li>Publie tes titres et albums après validation de ton profil.</li>
-          <li>Fixe tes prix en FCFA, à partir de {fcfa(MIN_PRICE)}.</li>
-          <li>Suis tes écoutes et tes ventes dans ton studio.</li>
+          <li>VibeStore distribue ta musique : nous créons ton compte et mettons tes titres en ligne.</li>
+          <li>Tu fixes tes prix en FCFA, à partir de {fcfa(MIN_PRICE)}.</li>
+          <li>Tu suis tes écoutes et tes ventes dans ton studio.</li>
         </ul>
-        <Link className="btn buy" to="/compte?artiste=1">Devenir artiste VibeStore</Link>
+        <p className="muted">Contacte l’équipe VibeStore pour faire distribuer ta musique.</p>
       </section>
     </>
   )

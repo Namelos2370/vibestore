@@ -6,8 +6,9 @@ Plateforme de streaming et de vente de musique (Cameroun / Afrique). React + Vit
 Le site fonctionne en entier avec une base locale (navigateur) et des données d'exemple :
 
 - Visiteur : doit créer un compte pour écouter. Auditeur : **30 s d'aperçu gratuit par titre pendant 30 jours** après l'inscription, puis achat obligatoire.
-- Achat de titres et d'albums, **prix minimum 1 000 FCFA**, panier, bibliothèque, historique.
-- Studio artiste (après validation), administration (validation des artistes et sorties, ventes, commission, moyens de paiement activables).
+- Achat de titres et d'albums, **prix minimum 500 FCFA**, panier, bibliothèque, historique.
+- **Modèle distribution : les comptes artistes et leurs titres sont ajoutés uniquement par VibeStore** (écran Admin : « Ajouter un artiste », « Ajouter une sortie »). L'artiste a un studio en lecture seule (écoutes, ventes, sa part) et une page publique à partager. Pas d'inscription artiste libre.
+- Administration : artistes, sorties, ventes, commission, moyens de paiement activables.
 - Commission : 15 % pendant 6 mois de lancement, puis 20 % (modifiable dans l'admin).
 - Paiement **simulé** (aucun débit). Audio : sons de test générés (le vrai audio vient avec Supabase Storage).
 
