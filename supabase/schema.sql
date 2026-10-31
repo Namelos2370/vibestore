@@ -263,3 +263,13 @@ drop policy if exists "covers: écriture admin" on storage.objects;
 create policy "covers: lecture publique" on storage.objects for select using (bucket_id = 'covers');
 create policy "covers: écriture admin" on storage.objects for all
   using (bucket_id = 'covers' and public.is_admin()) with check (bucket_id = 'covers' and public.is_admin());
+
+-- ============================================================
+-- Suppression par l'admin (v0.3d)
+-- ============================================================
+drop policy if exists "artistes: suppression admin" on public.artists;
+drop policy if exists "sorties: suppression admin" on public.releases;
+drop policy if exists "titres: suppression admin" on public.tracks;
+create policy "artistes: suppression admin" on public.artists for delete using (public.is_admin());
+create policy "sorties: suppression admin" on public.releases for delete using (public.is_admin());
+create policy "titres: suppression admin" on public.tracks for delete using (public.is_admin());

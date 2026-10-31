@@ -473,3 +473,97 @@ export async function trackAudioUrl(t, mode, { download = false } = {}) {
 export function coverUrl(path) {
   return REMOTE && path ? supabase.storage.from('covers').getPublicUrl(path).data.publicUrl : null
 }
+
+
+/* ---------- Modifier, masquer, supprimer (admin) ---------- */
+function hasSales(kind, id) {
+  const ps = db.purchases
+  if (kind === 'artist') return ps.some((p) => p.artistId === id)
+  if (kind === 'release') {
+    const ids = db.tracks.filter((t) => t.albumId === id).map((t) => t.id)
+    return ps.some((p) => (p.itemType === 'album' && p.itemId === id) || (p.itemType === 'track' && ids.includes(p.itemId)))
+  }
+  const t = db.tracks.find((x) => x.id === id)
+  return ps.some((p) => (p.itemType === 'track' && p.itemId === id) || (p.itemType === 'album' && t && p.itemId === t.albumId))
+}
+const cleanStatus = (st) => (st === 'rejected' ? 'rejected' : 'approved')
+function checkPrice(n, label) {
+  if (!(Number(n) >= db.settings.minPrice)) throw new Error(`Le prix minimum est de ${db.settings.minPrice} FCFA ${label}.`)
+}
+
+export async function updateArtist(admin, id, { name, genre, bio, status }) {
+  requireAdmin(admin)
+  if (!(name || '').trim()) throw new Error('Le nom ne peut pas être vide.')
+  if (db.artists.some((a) => a.id !== id && a.name.toLowerCase() === name.trim().toLowerCase())) throw new Error('Un artiste porte déjà ce nom.')
+  const row = { name: name.trim(), genre: (genre || '').trim(), bio: (bio || '').trim(), status: cleanStatus(status) }
+  if (REMOTE) { must(await supabase.from('artists').update(row).eq('id', id).select()); return refresh() }
+  Object.assign(db.artists.find((a) => a.id === id), row); save()
+}
+export async function updateRelease(admin, id, { title, price, color, status }) {
+  requireAdmin(admin)
+  if (!(title || '').trim()) throw new Error('Le titre ne peut pas être vide.')
+  checkPrice(price, 'pour une sortie')
+  const row = { title: title.trim(), price: Number(price), color, status: cleanStatus(status) }
+  if (REMOTE) { must(await supabase.from('releases').update(row).eq('id', id).select()); return refresh() }
+  Object.assign(db.albums.find((a) => a.id === id), row); save()
+}
+export async function updateTrack(admin, id, { title, price, status }) {
+  requireAdmin(admin)
+  if (!(title || '').trim()) throw new Error('Le titre ne peut pas être vide.')
+  checkPrice(price, 'par titre')
+  const row = { title: title.trim(), price: Number(price), status: cleanStatus(status) }
+  if (REMOTE) { must(await supabase.from('tracks').update(row).eq('id', id).select()); return refresh() }
+  Object.assign(db.tracks.find((t) => t.id === id), row); save()
+}
+const SOLD = 'Des ventes existent : masque-le plutôt que de le supprimer, pour que les acheteurs gardent leur musique.'
+async function removeFiles(tracks, releases = []) {
+  if (!REMOTE) return
+  const audio = tracks.map((t) => t.audioPath).filter(Boolean)
+  const prev = tracks.map((t) => t.previewPath).filter(Boolean)
+  const covers = releases.map((r) => r.coverPath).filter(Boolean)
+  if (audio.length) await supabase.storage.from('audio').remove(audio)
+  if (prev.length) await supabase.storage.from('previews').remove(prev)
+  if (covers.length) await supabase.storage.from('covers').remove(covers)
+}
+export async function deleteTrack(admin, id) {
+  requireAdmin(admin)
+  if (hasSales('track', id)) throw new Error(SOLD)
+  const t = db.tracks.find((x) => x.id === id)
+  if (REMOTE) { must(await supabase.from('tracks').delete().eq('id', id).select()); await removeFiles([t]); return refresh() }
+  db.tracks = db.tracks.filter((x) => x.id !== id); save()
+}
+export async function deleteRelease(admin, id) {
+  requireAdmin(admin)
+  if (hasSales('release', id)) throw new Error(SOLD)
+  const ts = db.tracks.filter((t) => t.albumId === id)
+  const r = db.albums.find((x) => x.id === id)
+  if (REMOTE) { must(await supabase.from('releases').delete().eq('id', id).select()); await removeFiles(ts, [r]); return refresh() }
+  db.tracks = db.tracks.filter((t) => t.albumId !== id); db.albums = db.albums.filter((a) => a.id !== id); save()
+}
+export async function deleteArtist(admin, id) {
+  requireAdmin(admin)
+  if (hasSales('artist', id)) throw new Error(SOLD)
+  const rs = db.albums.filter((a) => a.artistId === id)
+  const ts = db.tracks.filter((t) => t.artistId === id)
+  if (REMOTE) { must(await supabase.from('artists').delete().eq('id', id).select()); await removeFiles(ts, rs); return refresh() }
+  db.tracks = db.tracks.filter((t) => t.artistId !== id); db.albums = db.albums.filter((a) => a.artistId !== id); db.artists = db.artists.filter((a) => a.id !== id); save()
+}
+
+/* ---------- Mot de passe oublié ---------- */
+let recovery = false
+export function useRecovery() { useSyncExternalStore(subscribe, () => version); return recovery }
+export async function sendPasswordReset(email) {
+  if (!REMOTE) throw new Error('Disponible seulement avec la vraie base.')
+  email = (email || '').trim().toLowerCase()
+  if (!email.includes('@')) throw new Error('Entre ton adresse email.')
+  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/compte` })
+  if (error) throw new Error(frError(error.message))
+}
+export async function setNewPassword(password) {
+  if (!password || password.length < 6) throw new Error('Le mot de passe doit avoir au moins 6 caractères.')
+  const { error } = await supabase.auth.updateUser({ password })
+  if (error) throw new Error(frError(error.message))
+  recovery = false
+  await refresh()
+}
+if (REMOTE) supabase.auth.onAuthStateChange((event) => { if (event === 'PASSWORD_RECOVERY') { recovery = true; notify() } })

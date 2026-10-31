@@ -225,3 +225,10 @@ input[type=file]::file-selector-button { background: var(--surface2); color: var
   body.immersive main.page { padding-block: 0; }
 }
 @media (prefers-reduced-motion: reduce) { .slidecover.live, .eq i { animation: none; } }
+
+/* Gestion du catalogue (admin) */
+.mgr { list-style: none; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: grid; gap: 10px; }
+.mrow { align-items: center; gap: 8px; }
+.mrow .grow { flex: 1 1 200px; min-width: 0; }
+.sub { list-style: none; margin: 0; padding: 0 0 0 14px; border-left: 2px solid var(--line); display: grid; gap: 8px; }
+.btn.danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 50%, var(--line)); }

@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { Navigate } from 'react-router-dom'
-import { useDb, useUser, createArtist, createRelease, updateSettings, togglePayment, currentCommission, fcfa, MIN_PRICE } from '../lib/store'
+import { useDb, useUser, createArtist, createRelease, updateArtist, updateRelease, updateTrack, deleteArtist, deleteRelease, deleteTrack, updateSettings, togglePayment, currentCommission, fcfa, MIN_PRICE } from '../lib/store'
 import { Empty } from '../components/ui'
+import { mmss } from '../lib/store'
 
 const COLORS = ['#8B5CF6', '#22D3C5', '#F472B6', '#F59E0B', '#60A5FA']
 const emptyRow = () => ({ title: '', price: 1000, duration: 200, audioName: '', file: null })
@@ -124,6 +125,101 @@ function ReleaseForm({ admin, artists, preset }) {
   )
 }
 
+
+function CatalogManager({ admin }) {
+  const db = useDb()
+  const [edit, setEdit] = useState(null) // { kind, id, f }
+  const [msg, setMsg] = useState('')
+  const [open, setOpen] = useState({})
+  async function run(fn) { setMsg(''); try { await fn() ; setEdit(null) } catch (e) { setMsg(e.message) } }
+  const hidden = (x) => x.status === 'rejected'
+  const st = (x) => (hidden(x) ? 'approved' : 'rejected')
+  const ask = (t) => window.confirm(t)
+  const field = (k, props = {}) => (
+    <input value={edit.f[k] ?? ''} onChange={(e) => setEdit({ ...edit, f: { ...edit.f, [k]: e.target.value } })} {...props} />
+  )
+  const isEd = (kind, id) => edit && edit.kind === kind && edit.id === id
+  const tracksOf = (rid) => db.tracks.filter((t) => t.albumId === rid)
+  return (
+    <section>
+      <h2>Artistes du catalogue</h2>
+      {msg && <p className="err" role="alert">{msg}</p>}
+      {db.artists.length === 0 && <Empty>Aucun artiste pour le moment. Ajoute le premier ci-dessous.</Empty>}
+      <ul className="tracks">
+        {[...db.artists].reverse().map((a) => {
+          const rels = db.albums.filter((r) => r.artistId === a.id)
+          return (
+            <li key={a.id} className="mgr">
+              {isEd('artist', a.id) ? (
+                <div className="row wrap">
+                  <label className="field grow"><span>Nom</span>{field('name')}</label>
+                  <label className="field grow"><span>Genre</span>{field('genre')}</label>
+                  <label className="field grow2"><span>Présentation</span>{field('bio')}</label>
+                  <button className="btn small buy" type="button" onClick={() => run(() => updateArtist(admin, a.id, { ...edit.f, status: a.status }))}>Enregistrer</button>
+                  <button className="btn small ghost" type="button" onClick={() => setEdit(null)}>Annuler</button>
+                </div>
+              ) : (
+                <div className="row wrap mrow">
+                  <div className="tmeta grow"><b>{a.name}{hidden(a) && <span className="badge"> Masqué</span>}</b><span>{a.genre || 'Genre non précisé'} · {rels.length} sortie(s) · {a.account === 'active' ? 'Compte actif' : 'Invitation en attente'}</span></div>
+                  <button className="btn small ghost" type="button" onClick={() => setOpen({ ...open, [a.id]: !open[a.id] })}>{open[a.id] ? 'Replier' : 'Sorties'}</button>
+                  <button className="btn small ghost" type="button" onClick={() => setEdit({ kind: 'artist', id: a.id, f: { name: a.name, genre: a.genre, bio: a.bio } })}>Modifier</button>
+                  <button className="btn small ghost" type="button" onClick={() => run(() => updateArtist(admin, a.id, { name: a.name, genre: a.genre, bio: a.bio, status: st(a) }))}>{hidden(a) ? 'Réafficher' : 'Masquer'}</button>
+                  <button className="btn small ghost danger" type="button" onClick={() => ask(`Supprimer ${a.name}, ses sorties et ses titres ?`) && run(() => deleteArtist(admin, a.id))}>Supprimer</button>
+                </div>
+              )}
+              {open[a.id] && (
+                <ul className="sub">
+                  {rels.length === 0 && <li className="muted small">Aucune sortie.</li>}
+                  {rels.map((r) => (
+                    <li key={r.id}>
+                      {isEd('release', r.id) ? (
+                        <div className="row wrap">
+                          <label className="field grow2"><span>Titre de la sortie</span>{field('title')}</label>
+                          <label className="field"><span>Prix (min. {db.settings.minPrice})</span>{field('price', { type: 'number', min: db.settings.minPrice, step: 100 })}</label>
+                          <button className="btn small buy" type="button" onClick={() => run(() => updateRelease(admin, r.id, { ...edit.f, color: r.color, status: r.status }))}>Enregistrer</button>
+                          <button className="btn small ghost" type="button" onClick={() => setEdit(null)}>Annuler</button>
+                        </div>
+                      ) : (
+                        <div className="row wrap mrow">
+                          <div className="tmeta grow"><b>{r.title}{hidden(r) && <span className="badge"> Masqué</span>}</b><span>{r.kind === 'album' ? 'Album' : 'Single'} · {fcfa(r.price)} · {tracksOf(r.id).length} titre(s)</span></div>
+                          <button className="btn small ghost" type="button" onClick={() => setEdit({ kind: 'release', id: r.id, f: { title: r.title, price: r.price } })}>Modifier</button>
+                          <button className="btn small ghost" type="button" onClick={() => run(() => updateRelease(admin, r.id, { title: r.title, price: r.price, color: r.color, status: st(r) }))}>{hidden(r) ? 'Réafficher' : 'Masquer'}</button>
+                          <button className="btn small ghost danger" type="button" onClick={() => ask(`Supprimer « ${r.title} » et ses titres ?`) && run(() => deleteRelease(admin, r.id))}>Supprimer</button>
+                        </div>
+                      )}
+                      <ul className="sub">
+                        {tracksOf(r.id).map((t) => (
+                          <li key={t.id}>
+                            {isEd('track', t.id) ? (
+                              <div className="row wrap">
+                                <label className="field grow2"><span>Titre</span>{field('title')}</label>
+                                <label className="field"><span>Prix (min. {db.settings.minPrice})</span>{field('price', { type: 'number', min: db.settings.minPrice, step: 100 })}</label>
+                                <button className="btn small buy" type="button" onClick={() => run(() => updateTrack(admin, t.id, { ...edit.f, status: t.status }))}>Enregistrer</button>
+                                <button className="btn small ghost" type="button" onClick={() => setEdit(null)}>Annuler</button>
+                              </div>
+                            ) : (
+                              <div className="row wrap mrow">
+                                <div className="tmeta grow"><span>{t.title}{hidden(t) && <span className="badge"> Masqué</span>} · {fcfa(t.price)} · {mmss(t.duration)}{t.audioPath ? '' : ' · son de test'}</span></div>
+                                <button className="btn small ghost" type="button" onClick={() => setEdit({ kind: 'track', id: t.id, f: { title: t.title, price: t.price } })}>Modifier</button>
+                                <button className="btn small ghost" type="button" onClick={() => run(() => updateTrack(admin, t.id, { title: t.title, price: t.price, status: st(t) }))}>{hidden(t) ? 'Réafficher' : 'Masquer'}</button>
+                                <button className="btn small ghost danger" type="button" onClick={() => ask(`Supprimer « ${t.title} » ?`) && run(() => deleteTrack(admin, t.id))}>Supprimer</button>
+                              </div>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </li>
+          )
+        })}
+      </ul>
+    </section>
+  )
+}
+
 export default function Admin() {
   const db = useDb()
   const user = useUser()
@@ -137,7 +233,6 @@ export default function Admin() {
   const artistName = (id) => db.artists.find((a) => a.id === id)?.name || '—'
   const gross = db.purchases.reduce((t, p) => t + p.amount, 0)
   const fee = db.purchases.reduce((t, p) => t + (p.amount * p.commissionPct) / 100, 0)
-  const countReleases = (id) => db.albums.filter((a) => a.artistId === id).length
 
   return (
     <>
@@ -152,17 +247,7 @@ export default function Admin() {
 
       {tab === 'artistes' && (
         <>
-          <section>
-            <h2>Artistes du catalogue</h2>
-            {db.artists.length ? (
-              <ul className="tracks">{[...db.artists].reverse().map((a) => (
-                <li key={a.id} className="track simple">
-                  <div className="tmeta"><b>{a.name}</b><span>{a.genre || 'Genre non précisé'} · {countReleases(a.id)} sortie(s)</span></div>
-                  <span className={'badge ' + (a.account === 'active' ? 'ok' : '')}>{a.account === 'active' ? 'Compte actif' : 'Invitation envoyée'}</span>
-                </li>
-              ))}</ul>
-            ) : <Empty>Aucun artiste pour le moment. Ajoute le premier ci-dessous.</Empty>}
-          </section>
+          <CatalogManager admin={user} />
           <ArtistForm admin={user} />
           {db.artists.length > 0 && <ReleaseForm key={db.artists.length} admin={user} artists={db.artists} />}
         </>
