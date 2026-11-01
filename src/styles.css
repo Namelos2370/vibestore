@@ -259,3 +259,6 @@ nav a.bell { position: relative; display: inline-flex; align-items: center; padd
 .sharei{font-style:normal;display:inline-block;border:1px solid currentColor;border-radius:5px;padding:0 5px}
 @media(min-width:900px){.install{bottom:20px}}
 .chip .cs{opacity:.7;font-size:.75rem}
+.powered{display:inline-flex;gap:6px;align-items:center;font-size:.8rem;color:var(--muted);text-decoration:none;border:1px solid var(--line);border-radius:999px;padding:4px 12px;width:fit-content}
+.powered b{color:#4aa8ff;letter-spacing:.04em;text-transform:uppercase;font-weight:800}
+.powered:hover{border-color:#4aa8ff}

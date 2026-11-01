@@ -34,6 +34,7 @@ export default function Discover() {
   const favs = myLikes(db, user)
   function openLyrics(t, on) {
     const r = listenRight(db, user, t)
+    if (!user) { setToast('Les paroles sont réservées aux inscrits : crée ton compte gratuit.'); setTimeout(() => nav('/compte'), 1400); return }
     if (r === 'expired') { setToast('Ton essai est terminé : achète ce titre pour lire les paroles.'); return }
     setLyr(t.id); if (!on || !playing) play(t)
   }
@@ -116,7 +117,7 @@ export default function Discover() {
               )}
               <AddButton type="track" id={t.id} price={t.price} />
             </div>
-            {lyr === t.id && listenRight(db, user, t) !== 'expired' && <Lyrics t={t} on={on} pos={pos} onClose={() => setLyr(null)} />}
+            {lyr === t.id && user && listenRight(db, user, t) !== 'expired' && <Lyrics t={t} on={on} pos={pos} onClose={() => setLyr(null)} />}
             {clip === t.id && (
               <div className="modal">
                 <Clip url={t.album.videoUrl} />

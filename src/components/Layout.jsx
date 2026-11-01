@@ -5,6 +5,10 @@ import { autoPush, useDb, useUser, useUnread, signOut, trialDaysLeft, mmss, PREV
 import { Cover } from './ui'
 import InstallPrompt from './InstallPrompt'
 
+export function PoweredBy() {
+  return <a className="powered" href="https://blue-energy-store.vercel.app/" target="_blank" rel="noopener noreferrer">Powered by <b>Blue Energy</b></a>
+}
+
 function Player() {
   const { track, playing, pos, mode, notice, setNotice, toggle, seek, addToCart, audioDuration } = useApp()
   const user = useUser()
@@ -76,6 +80,7 @@ export default function Layout() {
       <main className="wrap page"><Outlet /></main>
       <footer className="wrap foot">
         <span>© ETS VibeStore · Yaoundé, Cameroun</span>
+        <PoweredBy />
       </footer>
       <Player />
       <InstallPrompt />

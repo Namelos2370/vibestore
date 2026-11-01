@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useDb, useUser, catalog, fcfa, trialDaysLeft, MIN_PRICE } from '../lib/store'
 import { AlbumCard, TrackRow, Empty } from '../components/ui'
+import { PoweredBy } from '../components/Layout'
 import Dashboard from './Dashboard'
 
 export default function Home() {
@@ -22,6 +23,7 @@ export default function Home() {
             <Link className="btn buy" to="/explorer">Explorer le catalogue</Link>
             <Link className="btn ghost" to="/compte">Créer un compte</Link>
           </div>
+          <PoweredBy />
         </div>
         <img className="herologo" src="/logo.jpg" alt="Logo VibeStore : casque audio et panier" width="420" height="420" />
       </section>
