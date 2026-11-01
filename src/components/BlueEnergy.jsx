@@ -62,13 +62,12 @@ export function Splash() {
 
   if (!show) return null
   return (
-    <div className={'splash' + (out ? ' out' : '')} role="presentation" onClick={close}>
+    <div className={'splash' + (out ? ' out' : '')} role="presentation">
       <img src="/logo.jpg" alt="" width="150" height="150" className="s1" />
       <b className="s2">Vibe<span>Store</span></b>
       <div className="s3"><img src="/blue-energy.png" alt="" width="34" height="34" /><span>Powered by <b>Blue Energy</b></span></div>
       <small className="s4">Elevate your standard.</small>
       <div className="sbar" aria-hidden="true"><i style={{ animationDuration: SPLASH_MS + 'ms' }} /></div>
-      <button className="linkbtn skip" type="button" onClick={close}>Passer</button>
     </div>
   )
 }
