@@ -413,3 +413,11 @@ create policy "demandes: lecture artiste" on public.artist_requests for select
   using (exists (select 1 from public.artists a where a.id = artist_id and a.user_id = auth.uid()));
 create policy "demandes: ajout artiste" on public.artist_requests for insert
   with check (status = 'open' and reply = '' and exists (select 1 from public.artists a where a.id = artist_id and a.user_id = auth.uid()));
+
+-- ============================================================
+-- v0.7 : distribution sur les autres plateformes
+-- ============================================================
+alter table public.artist_private add column if not exists distribution text not null default 'none' check (distribution in ('none','requested','progress','active'));
+alter table public.artist_private add column if not exists distributor text not null default '';
+alter table public.artist_requests drop constraint if exists artist_requests_kind_check;
+alter table public.artist_requests add constraint artist_requests_kind_check check (kind in ('track','edit','payout','distribution','other'));

@@ -1,5 +1,5 @@
 import { Link, useParams } from 'react-router-dom'
-import { useDb, catalog, photoUrl, likeCount } from '../lib/store'
+import { useDb, catalog, photoUrl, likeCount, PLATFORMS } from '../lib/store'
 import { AlbumCard, TrackRow, Empty } from '../components/ui'
 
 export default function Artist() {
@@ -25,6 +25,9 @@ export default function Artist() {
         {a.links?.youtube && <a className="btn small ghost" href={a.links.youtube} target="_blank" rel="noopener noreferrer">YouTube</a>}
         {a.links?.whatsapp && <a className="btn small ghost" href={`https://wa.me/${a.links.whatsapp.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer">WhatsApp</a>}
       </div>
+      {PLATFORMS.some(([k]) => a.links?.[k]) && (
+        <div className="links"><span className="muted small">Écouter aussi sur</span>{PLATFORMS.filter(([k]) => a.links?.[k]).map(([k, l]) => <a key={k} className="btn small ghost" href={a.links[k]} target="_blank" rel="noopener noreferrer">{l}</a>)}</div>
+      )}
       <section><h2>Sorties</h2><div className="grid">{als.map((al) => <AlbumCard key={al.id} al={al} />)}</div></section>
       <section><h2>Titres</h2><ul className="tracks">{ts.map((t) => <TrackRow key={t.id} t={t} showArtist={false} />)}</ul></section>
     </>

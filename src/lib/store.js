@@ -353,7 +353,7 @@ export function refresh() {
       next.tracks = (tr.data || []).map(mapTrack)
       next.purchases = (pu.data || []).map(mapPurchase)
       next.notifications = (no.data || []).map((n) => ({ id: n.id, title: n.title, body: n.body, url: n.url, at: ms(n.created_at) }))
-      next.priv = Object.fromEntries((ap.data || []).map((r) => [r.artist_id, { payoutMethod: r.payout_method, payoutNumber: r.payout_number, commissionPct: r.commission_pct == null ? null : Number(r.commission_pct), contractStart: r.contract_start || '' }]))
+      next.priv = Object.fromEntries((ap.data || []).map((r) => [r.artist_id, { payoutMethod: r.payout_method, payoutNumber: r.payout_number, commissionPct: r.commission_pct == null ? null : Number(r.commission_pct), contractStart: r.contract_start || '', distribution: r.distribution || 'none', distributor: r.distributor || '' }]))
       next.notes = Object.fromEntries((an.data || []).map((r) => [r.artist_id, r.notes]))
       next.payouts = (po.data || []).map((r) => ({ id: r.id, artistId: r.artist_id, amount: r.amount, method: r.method, reference: r.reference, note: r.note, at: ms(r.created_at) }))
       next.requests = (rq.data || []).map((r) => ({ id: r.id, artistId: r.artist_id, kind: r.kind, message: r.message, status: r.status, reply: r.reply, at: ms(r.created_at) }))
@@ -721,8 +721,11 @@ export function autoPush() {
 
 
 /* ---------- Gestion des artistes : fiche, contrat, versements, demandes ---------- */
+export const LINK_KEYS = ['instagram', 'tiktok', 'youtube', 'whatsapp', 'spotify', 'apple', 'youtubemusic', 'deezer', 'boomplay', 'audiomack']
+export const PLATFORMS = [['spotify', 'Spotify'], ['apple', 'Apple Music'], ['youtubemusic', 'YouTube Music'], ['deezer', 'Deezer'], ['boomplay', 'Boomplay'], ['audiomack', 'Audiomack']]
+export const DISTRIBUTION = [['none', 'Pas de distribution'], ['requested', 'Demandée'], ['progress', 'En cours chez le distributeur'], ['active', 'En ligne sur les plateformes']]
 export const PAYOUT_METHODS = [['momo', 'MTN Mobile Money'], ['om', 'Orange Money'], ['virement', 'Virement bancaire'], ['especes', 'Espèces']]
-export const REQUEST_KINDS = [['track', 'Ajouter un titre ou une sortie'], ['edit', 'Modifier une information'], ['payout', 'Question sur un versement'], ['other', 'Autre demande']]
+export const REQUEST_KINDS = [['track', 'Ajouter un titre ou une sortie'], ['edit', 'Modifier une information'], ['payout', 'Question sur un versement'], ['distribution', 'Distribution sur les autres plateformes'], ['other', 'Autre demande']]
 export function photoUrl(path) {
   if (!path) return null
   if (path.startsWith('data:')) return path
@@ -751,7 +754,7 @@ export async function updateArtistProfile(admin, id, f) {
   if (db.artists.some((a) => a.id !== id && a.name.toLowerCase() === name.toLowerCase())) throw new Error('Un artiste porte déjà ce nom.')
   const status = ['approved', 'rejected', 'pending'].includes(f.status) ? f.status : 'approved'
   const links = {}
-  ;['instagram', 'tiktok', 'youtube', 'whatsapp'].forEach((k) => { const v = (f.links?.[k] || '').trim(); if (v) links[k] = v })
+  ;LINK_KEYS.forEach((k) => { const v = (f.links?.[k] || '').trim(); if (v) links[k] = v })
   const row = { name, genre: (f.genre || '').trim(), bio: (f.bio || '').trim(), city: (f.city || '').trim(), links, verified: !!f.verified, status }
   let photoPath
   if (f.photo) {
@@ -777,9 +780,9 @@ export async function updateArtistPrivate(admin, id, f) {
   requireAdmin(admin)
   const c = f.commissionPct === '' || f.commissionPct == null ? null : Number(f.commissionPct)
   if (c != null && !(c >= 0 && c <= 60)) throw new Error('La commission doit être comprise entre 0 et 60 %.')
-  const row = { payoutMethod: f.payoutMethod || 'momo', payoutNumber: (f.payoutNumber || '').trim(), commissionPct: c, contractStart: f.contractStart || '' }
+  const row = { payoutMethod: f.payoutMethod || 'momo', payoutNumber: (f.payoutNumber || '').trim(), commissionPct: c, contractStart: f.contractStart || '', distribution: DISTRIBUTION.some(([k]) => k === f.distribution) ? f.distribution : 'none', distributor: (f.distributor || '').trim() }
   if (REMOTE) {
-    must(await supabase.from('artist_private').upsert({ artist_id: id, payout_method: row.payoutMethod, payout_number: row.payoutNumber, commission_pct: c, contract_start: row.contractStart || null }, { onConflict: 'artist_id' }).select())
+    must(await supabase.from('artist_private').upsert({ artist_id: id, payout_method: row.payoutMethod, payout_number: row.payoutNumber, commission_pct: c, contract_start: row.contractStart || null, distribution: row.distribution, distributor: row.distributor }, { onConflict: 'artist_id' }).select())
     return refresh()
   }
   db.priv[id] = row; save()

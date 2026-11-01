@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
-import { useDb, useUser, myArtist, fcfa, likeCount, artistBalance, artistCommission, photoUrl, sendRequest, REQUEST_KINDS, PAYOUT_METHODS } from '../lib/store'
+import { useDb, useUser, myArtist, fcfa, likeCount, artistBalance, artistCommission, photoUrl, sendRequest, REQUEST_KINDS, PAYOUT_METHODS, DISTRIBUTION } from '../lib/store'
 import { Bars } from './AdminOverview'
 import { Empty } from '../components/ui'
 
@@ -126,6 +126,12 @@ export default function Studio() {
             ))}
           </ul>
         ) : <Empty>Aucune sortie.</Empty>}
+      </section>
+
+      <section className="panel">
+        <h2>Distribution sur les autres plateformes</h2>
+        <p className="muted">Statut : <b>{(DISTRIBUTION.find(([k]) => k === (priv?.distribution || 'none')) || [0, ''])[1]}</b>{priv?.distributor ? ` · distributeur : ${priv.distributor}` : ''}</p>
+        <p className="muted small">VibeStore peut aussi faire distribuer vos titres sur Spotify, Apple Music, YouTube Music, Deezer, Boomplay ou Audiomack, via un distributeur partenaire. Faites la demande ci-dessous (sujet « Distribution »).</p>
       </section>
 
       <RequestForm user={user} />

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import {
-  useDb, fcfa, likeCount, currentCommission, artistBalance, artistCommission, PAYOUT_METHODS, REQUEST_KINDS, photoUrl,
+  useDb, fcfa, likeCount, currentCommission, artistBalance, artistCommission, PAYOUT_METHODS, REQUEST_KINDS, PLATFORMS, DISTRIBUTION, photoUrl,
   updateArtistProfile, removeArtistPhoto, updateArtistPrivate, saveArtistNotes, addPayout, deletePayout, resolveRequest,
   updateInviteEmail, cancelInvite, inviteMessage,
 } from '../lib/store'
@@ -31,8 +31,8 @@ export function statementCsv(db, a) {
 export function ArtistSheet({ admin, artist: a, onClose }) {
   const db = useDb()
   const priv = db.priv[a.id] || {}
-  const [f, setF] = useState({ name: a.name, genre: a.genre || '', bio: a.bio || '', city: a.city || '', verified: !!a.verified, status: a.status, links: { instagram: '', tiktok: '', youtube: '', whatsapp: '', ...(a.links || {}) }, photo: null })
-  const [c, setC] = useState({ commissionPct: priv.commissionPct ?? '', contractStart: priv.contractStart || '', payoutMethod: priv.payoutMethod || 'momo', payoutNumber: priv.payoutNumber || '' })
+  const [f, setF] = useState({ name: a.name, genre: a.genre || '', bio: a.bio || '', city: a.city || '', verified: !!a.verified, status: a.status, links: { instagram: '', tiktok: '', youtube: '', whatsapp: '', spotify: '', apple: '', youtubemusic: '', deezer: '', boomplay: '', audiomack: '', ...(a.links || {}) }, photo: null })
+  const [c, setC] = useState({ commissionPct: priv.commissionPct ?? '', contractStart: priv.contractStart || '', payoutMethod: priv.payoutMethod || 'momo', payoutNumber: priv.payoutNumber || '', distribution: priv.distribution || 'none', distributor: priv.distributor || '' })
   const [notes, setNotes] = useState(db.notes[a.id] || '')
   const [po, setPo] = useState({ amount: '', method: priv.payoutMethod || 'momo', reference: '', note: '' })
   const [email, setEmail] = useState(db.invites[a.id] || '')
@@ -91,6 +91,11 @@ export function ArtistSheet({ admin, artist: a, onClose }) {
         <label className="field grow"><span>YouTube</span><input value={f.links.youtube} onChange={L('youtube')} placeholder="https://youtube.com/@…" /></label>
         <label className="field grow"><span>WhatsApp (numéro)</span><input value={f.links.whatsapp} onChange={L('whatsapp')} placeholder="2376…" /></label>
       </div>
+      <h3>Autres plateformes</h3>
+      <p className="muted small">Liens de l’artiste sur les plateformes de streaming : ils apparaissent sur sa page publique (« Écouter aussi sur »).</p>
+      <div className="row wrap">
+        {PLATFORMS.map(([k, l]) => <label key={k} className="field grow"><span>{l}</span><input value={f.links[k]} onChange={L(k)} placeholder="https://…" /></label>)}
+      </div>
       <div className="row wrap">
         <label className="field grow"><span>Statut</span>
           <select value={f.status} onChange={(e) => setF({ ...f, status: e.target.value })}>
@@ -109,6 +114,10 @@ export function ArtistSheet({ admin, artist: a, onClose }) {
         <label className="field grow"><span>Moyen de versement</span>
           <select value={c.payoutMethod} onChange={(e) => setC({ ...c, payoutMethod: e.target.value })}>{PAYOUT_METHODS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
         </label>
+        <label className="field grow"><span>Distribution (autres plateformes)</span>
+          <select value={c.distribution} onChange={(e) => setC({ ...c, distribution: e.target.value })}>{DISTRIBUTION.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
+        </label>
+        <label className="field grow"><span>Distributeur partenaire</span><input value={c.distributor} onChange={(e) => setC({ ...c, distributor: e.target.value })} placeholder="Nom du distributeur" /></label>
         <label className="field grow"><span>Numéro ou compte</span><input value={c.payoutNumber} onChange={(e) => setC({ ...c, payoutNumber: e.target.value })} placeholder="6 99 00 00 00" /></label>
         <button className="btn buy" type="button" onClick={run('Contrat enregistré.', () => updateArtistPrivate(admin, a.id, c))}>Enregistrer</button>
       </div>
