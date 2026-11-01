@@ -18,7 +18,7 @@ export default function Release() {
         <div>
           <span className="eyebrow">{al.kind === 'album' ? 'Album' : 'Single'}</span>
           <h1 className="h1">{al.title}</h1>
-          <p className="lead"><Link to={`/artiste/${al.artist.id}`}>{al.artist.name}</Link> · {list.length} titre(s) · {mmss(total)}</p>
+          <p className="lead"><Link to={`/artiste/${al.artist.id}`}>{al.artist.name}</Link>{al.artist.verified && <span className="vbadge">✔</span>} · {list.length} titre(s) · {mmss(total)}</p>
           <div className="row">
             <AddButton type="album" id={al.id} price={al.price} />
             <span className="muted">{al.kind === 'album' ? 'Album complet' : 'Single'} · {fcfa(al.price)}</span>

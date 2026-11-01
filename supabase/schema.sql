@@ -189,6 +189,7 @@ declare
   s public.settings%rowtype;
   uid uuid := auth.uid();
   pct numeric;
+  apct numeric;
   it jsonb;
   t public.tracks%rowtype;
   rel public.releases%rowtype;
@@ -208,15 +209,17 @@ begin
       if not found then continue; end if;
       if exists (select 1 from public.purchases where user_id = uid and status = 'paid' and
            ((item_type = 'track' and item_id = t.id) or (item_type = 'release' and item_id = t.release_id))) then continue; end if;
+      select coalesce((select commission_pct from public.artist_private where artist_id = t.artist_id), pct) into apct;
       insert into public.purchases (user_id, item_type, item_id, artist_id, amount, commission_pct, method)
-        values (uid, 'track', t.id, t.artist_id, t.price, pct, p_method) returning * into row;
+        values (uid, 'track', t.id, t.artist_id, t.price, apct, p_method) returning * into row;
       return next row;
     elsif it->>'type' = 'album' then
       select * into rel from public.releases where id = (it->>'id')::uuid and status = 'approved';
       if not found then continue; end if;
       if exists (select 1 from public.purchases where user_id = uid and status = 'paid' and item_type = 'release' and item_id = rel.id) then continue; end if;
+      select coalesce((select commission_pct from public.artist_private where artist_id = rel.artist_id), pct) into apct;
       insert into public.purchases (user_id, item_type, item_id, artist_id, amount, commission_pct, method)
-        values (uid, 'release', rel.id, rel.artist_id, rel.price, pct, p_method) returning * into row;
+        values (uid, 'release', rel.id, rel.artist_id, rel.price, apct, p_method) returning * into row;
       return next row;
     end if;
   end loop;
@@ -340,3 +343,73 @@ returns table (track_id uuid, n bigint)
 language sql security definer set search_path = public stable as
 $$ select track_id, count(*) from public.likes group by track_id $$;
 grant execute on function public.track_like_counts() to anon, authenticated;
+
+
+-- ============================================================
+-- v0.6 : gestion des artistes (fiche, contrat, versements, demandes)
+-- ============================================================
+alter table public.artists add column if not exists photo_path text;
+alter table public.artists add column if not exists city text not null default '';
+alter table public.artists add column if not exists links jsonb not null default '{}'::jsonb;   -- instagram, tiktok, youtube, whatsapp
+alter table public.artists add column if not exists verified boolean not null default false;
+
+-- Contrat et paiement : visible par l'admin et par l'artiste concerné seulement.
+create table if not exists public.artist_private (
+  artist_id uuid primary key references public.artists(id) on delete cascade,
+  payout_method text not null default 'momo',
+  payout_number text not null default '',
+  commission_pct numeric check (commission_pct is null or (commission_pct >= 0 and commission_pct <= 60)),  -- null = commission générale
+  contract_start date
+);
+alter table public.artist_private enable row level security;
+drop policy if exists "contrat: admin" on public.artist_private;
+drop policy if exists "contrat: lecture artiste" on public.artist_private;
+create policy "contrat: admin" on public.artist_private for all using (public.is_admin()) with check (public.is_admin());
+create policy "contrat: lecture artiste" on public.artist_private for select
+  using (exists (select 1 from public.artists a where a.id = artist_id and a.user_id = auth.uid()));
+
+-- Notes internes : admin uniquement.
+create table if not exists public.artist_notes (
+  artist_id uuid primary key references public.artists(id) on delete cascade,
+  notes text not null default ''
+);
+alter table public.artist_notes enable row level security;
+drop policy if exists "notes: admin" on public.artist_notes;
+create policy "notes: admin" on public.artist_notes for all using (public.is_admin()) with check (public.is_admin());
+
+-- Versements faits aux artistes.
+create table if not exists public.payouts (
+  id uuid primary key default gen_random_uuid(),
+  artist_id uuid not null references public.artists(id) on delete cascade,
+  amount integer not null check (amount > 0),
+  method text not null default 'momo',
+  reference text not null default '',
+  note text not null default '',
+  created_at timestamptz not null default now()
+);
+alter table public.payouts enable row level security;
+drop policy if exists "versements: admin" on public.payouts;
+drop policy if exists "versements: lecture artiste" on public.payouts;
+create policy "versements: admin" on public.payouts for all using (public.is_admin()) with check (public.is_admin());
+create policy "versements: lecture artiste" on public.payouts for select
+  using (exists (select 1 from public.artists a where a.id = artist_id and a.user_id = auth.uid()));
+
+-- Demandes de l'artiste à l'équipe (nouveau titre, modification…).
+create table if not exists public.artist_requests (
+  id uuid primary key default gen_random_uuid(),
+  artist_id uuid not null references public.artists(id) on delete cascade,
+  kind text not null default 'other' check (kind in ('track','edit','payout','other')),
+  message text not null check (length(message) between 3 and 2000),
+  status text not null default 'open' check (status in ('open','done')),
+  reply text not null default '',
+  created_at timestamptz not null default now()
+);
+alter table public.artist_requests enable row level security;
+drop policy if exists "demandes: admin" on public.artist_requests;
+drop policy if exists "demandes: lecture artiste" on public.artist_requests;
+drop policy if exists "demandes: ajout artiste" on public.artist_requests;
+create policy "demandes: admin" on public.artist_requests for all using (public.is_admin()) with check (public.is_admin());
+create policy "demandes: lecture artiste" on public.artist_requests for select
+  using (exists (select 1 from public.artists a where a.id = artist_id and a.user_id = auth.uid()));
+create policy "demandes: ajout artiste" on public.artist_requests for insert
+  with check (status = 'open' and reply = '' and exists (select 1 from public.artists a where a.id = artist_id and a.user_id = auth.uid()));

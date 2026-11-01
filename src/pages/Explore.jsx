@@ -36,7 +36,7 @@ export default function Explore() {
       <section>
         <h2>{s ? 'Artistes' : 'Top artistes'}</h2>
         {f.artists.length ? (
-          <div className="chips">{f.artists.map((a, i) => <Link key={a.id} className="chip" to={`/artiste/${a.id}`}>{i === 0 && !s && artistScore(a) > 0 ? '🏆 ' : ''}{a.name}{stats[a.id] && <small className="cs"> · {stats[a.id].plays} écoutes · ♥ {stats[a.id].likes}</small>}</Link>)}</div>
+          <div className="chips">{f.artists.map((a, i) => <Link key={a.id} className="chip" to={`/artiste/${a.id}`}>{i === 0 && !s && artistScore(a) > 0 ? '🏆 ' : ''}{a.name}{a.verified && <span className="vbadge">✔</span>}{stats[a.id] && <small className="cs"> · {stats[a.id].plays} écoutes · ♥ {stats[a.id].likes}</small>}</Link>)}</div>
         ) : <Empty>Aucun artiste trouvé.</Empty>}
       </section>
       <section>

@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useApp } from '../lib/AppContext'
-import { autoPush, useDb, useUser, useUnread, signOut, trialDaysLeft, mmss, PREVIEW_SECONDS, fcfa } from '../lib/store'
+import { autoPush, useDb, useUser, useUnread, signOut, openRequests, trialDaysLeft, mmss, PREVIEW_SECONDS, fcfa } from '../lib/store'
 import { Cover } from './ui'
 import InstallPrompt from './InstallPrompt'
 import { PoweredBy } from './BlueEnergy'
@@ -61,7 +61,7 @@ export default function Layout() {
             <NavLink to="/sessions" className="mhide">Sessions</NavLink>
             {user && <NavLink to="/bibliotheque" className="mhide">Ma musique</NavLink>}
             {user && user.role === 'artist' && <NavLink to="/studio">Studio</NavLink>}
-            {user && user.role === 'admin' && <NavLink to="/admin">Admin</NavLink>}
+            {user && user.role === 'admin' && <NavLink to="/admin">Admin{openRequests(db) > 0 && <b className="dot inl">{openRequests(db)}</b>}</NavLink>}
             <NavLink to="/notifications" className="bell" aria-label={`Notifications${unread ? ` (${unread} nouvelles)` : ''}`}>
               <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 17V11a6 6 0 1112 0v6l1.5 2h-15L6 17zM10 21h4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
               {unread > 0 && <b className="dot">{unread > 9 ? '9+' : unread}</b>}

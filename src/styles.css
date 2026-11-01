@@ -295,3 +295,14 @@ nav a.bell { position: relative; display: inline-flex; align-items: center; padd
 .rank li span{display:block;color:var(--muted);font-size:.8rem}
 .todo{display:flex;flex-direction:column;gap:8px}
 .todo .linkbtn{text-align:left}
+.vbadge{display:inline-grid;place-items:center;width:18px;height:18px;margin-left:6px;border-radius:50%;background:#2f6bff;color:#fff;font-size:.65rem;font-weight:800;vertical-align:middle}
+.sheet h3{margin:22px 0 8px}
+.avatar{width:72px;height:72px;border-radius:50%;object-fit:cover;flex:none}
+.avatar.ph{display:grid;place-items:center;background:var(--line);font-size:1.6rem;font-weight:800}
+.check{display:flex;align-items:center;gap:8px;padding-bottom:10px}
+textarea{width:100%;font:inherit;color:inherit;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px}
+.price.due{color:#22d3c5}
+.links{display:flex;gap:8px;flex-wrap:wrap;margin-block:10px}
+.artisthead{display:flex;gap:16px;align-items:center}
+.avatar.big{width:96px;height:96px}
+.dot.inl{position:static;display:inline-grid;margin-left:6px;vertical-align:middle}

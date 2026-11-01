@@ -104,7 +104,7 @@ export default function Discover() {
             <div className={'slidecover' + (on && playing ? ' live' : '')}><Cover album={t.album} /></div>
             <div className="slidemeta">
               <h2>{t.title}</h2>
-              <p><Link to={`/artiste/${t.artist.id}`}>{t.artist.name}</Link> · <Link to={`/sortie/${t.album.id}`}>{t.album.title}</Link></p>
+              <p><Link to={`/artiste/${t.artist.id}`}>{t.artist.name}</Link>{t.artist.verified && <span className="vbadge">✔</span>} · <Link to={`/sortie/${t.album.id}`}>{t.album.title}</Link></p>
               <span className="badge">{right === 'full' ? 'Écoute complète' : 'Aperçu 30 s'}</span>
               {on && playing && <span className="eq" aria-hidden="true"><i /><i /><i /><i /></span>}
             </div>

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Navigate } from 'react-router-dom'
-import { useDb, useUser, createArtist, createRelease, updateArtist, updateRelease, updateTrack, deleteArtist, deleteRelease, deleteTrack, updateSettings, togglePayment, currentCommission, fcfa, MIN_PRICE } from '../lib/store'
+import { useDb, useUser, createArtist, createRelease, updateArtist, updateRelease, updateTrack, deleteArtist, deleteRelease, deleteTrack, updateSettings, togglePayment, currentCommission, fcfa, MIN_PRICE, openRequests } from '../lib/store'
 import { Empty } from '../components/ui'
 import LyricsEditor from '../components/LyricsEditor'
 import { trackAudioUrl, announce } from '../lib/store'
@@ -140,7 +140,7 @@ function ReleaseForm({ admin, artists, preset }) {
 }
 
 
-function CatalogManager({ admin }) {
+function CatalogManager({ admin, onSheet }) {
   const db = useDb()
   const [edit, setEdit] = useState(null) // { kind, id, f }
   const [msg, setMsg] = useState('')
@@ -174,7 +174,8 @@ function CatalogManager({ admin }) {
                 </div>
               ) : (
                 <div className="row wrap mrow">
-                  <div className="tmeta grow"><b>{a.name}{hidden(a) && <span className="badge"> Masqué</span>}</b><span>{a.genre || 'Genre non précisé'} · {rels.length} sortie(s) · {a.account === 'active' ? 'Compte actif' : 'Invitation en attente'}</span></div>
+                  <div className="tmeta grow"><b>{a.name}{a.verified && <span className="vbadge" title="Artiste vérifié">✔</span>}{hidden(a) && <span className="badge"> {a.status === 'pending' ? 'Archivé' : 'Suspendu'}</span>}{a.status === 'pending' && !hidden(a) && <span className="badge"> Archivé</span>}</b><span>{a.genre || 'Genre non précisé'} · {rels.length} sortie(s) · {a.account === 'active' ? 'Compte actif' : 'Invitation en attente'}</span></div>
+                  <button className="btn small buy" type="button" onClick={() => onSheet(a.id)}>Fiche</button>
                   <button className="btn small ghost" type="button" onClick={() => setOpen({ ...open, [a.id]: !open[a.id] })}>{open[a.id] ? 'Replier' : 'Sorties'}</button>
                   <button className="btn small ghost" type="button" onClick={() => setEdit({ kind: 'artist', id: a.id, f: { name: a.name, genre: a.genre, bio: a.bio } })}>Modifier</button>
                   <button className="btn small ghost" type="button" onClick={() => run(() => updateArtist(admin, a.id, { name: a.name, genre: a.genre, bio: a.bio, status: st(a) }))}>{hidden(a) ? 'Réafficher' : 'Masquer'}</button>
@@ -267,6 +268,7 @@ function AnnounceForm({ admin }) {
 }
 
 import AdminOverview from './AdminOverview'
+import { ArtistSheet, PayoutsTab, RequestsTab } from './AdminArtists'
 
 function exportSales(db) {
   const q = (x) => '"' + String(x).replace(/"/g, '""') + '"'
@@ -280,6 +282,8 @@ export default function Admin() {
   const db = useDb()
   const user = useUser()
   const [tab, setTab] = useState('apercu')
+  const [sheetId, setSheetId] = useState(null)
+  const openSheet = (id) => { setSheetId(id); setTab('artistes'); setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 50) }
   const [s, setS] = useState(null)
   if (!user) return <Navigate to="/compte" replace />
   if (user.role !== 'admin') return <Empty>Espace réservé à l’équipe VibeStore.</Empty>
@@ -296,7 +300,7 @@ export default function Admin() {
       <h1 className="h1">Administration</h1>
       <p className="muted">Les comptes artistes et leurs titres sont ajoutés uniquement ici, par l’équipe VibeStore. Les artistes ne s’inscrivent pas seuls et ne publient pas eux-mêmes.</p>
       <div className="tabs" role="tablist">
-        {[['apercu', 'Aperçu'], ['artistes', 'Artistes et titres'], ['annonces', 'Annonces'], ['ventes', 'Ventes'], ['reglages', 'Réglages']].map(([k, l]) => (
+        {[['apercu', 'Aperçu'], ['artistes', 'Artistes et titres'], ['reversements', 'Reversements'], ['demandes', `Demandes${openRequests(db) ? ` (${openRequests(db)})` : ''}`], ['annonces', 'Annonces'], ['ventes', 'Ventes'], ['reglages', 'Réglages']].map(([k, l]) => (
           <button key={k} role="tab" aria-selected={tab === k} className={'tab' + (tab === k ? ' on' : '')} type="button" onClick={() => setTab(k)}>{l}</button>
         ))}
       </div>
@@ -305,11 +309,15 @@ export default function Admin() {
 
       {tab === 'artistes' && (
         <>
-          <CatalogManager admin={user} />
+          {sheetId && db.artists.find((a) => a.id === sheetId) && <ArtistSheet key={sheetId} admin={user} artist={db.artists.find((a) => a.id === sheetId)} onClose={() => setSheetId(null)} />}
+          <CatalogManager admin={user} onSheet={setSheetId} />
           <ArtistForm admin={user} />
           {db.artists.length > 0 && <ReleaseForm key={db.artists.length} admin={user} artists={db.artists} />}
         </>
       )}
+
+      {tab === 'reversements' && <PayoutsTab onOpen={openSheet} />}
+      {tab === 'demandes' && <RequestsTab admin={user} />}
 
       {tab === 'annonces' && <AnnounceForm admin={user} />}
 

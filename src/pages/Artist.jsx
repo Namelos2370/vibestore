@@ -1,5 +1,5 @@
 import { Link, useParams } from 'react-router-dom'
-import { useDb, catalog } from '../lib/store'
+import { useDb, catalog, photoUrl, likeCount } from '../lib/store'
 import { AlbumCard, TrackRow, Empty } from '../components/ui'
 
 export default function Artist() {
@@ -12,9 +12,19 @@ export default function Artist() {
   const ts = tracks.filter((t) => t.artistId === a.id)
   return (
     <>
-      <span className="eyebrow">Artiste</span>
-      <h1 className="h1">{a.name}</h1>
+      <span className="eyebrow">Artiste{a.city ? ` · ${a.city}` : ''}{a.genre ? ` · ${a.genre}` : ''}</span>
+      <div className="artisthead">
+        {photoUrl(a.photoPath) && <img className="avatar big" src={photoUrl(a.photoPath)} alt={a.name} width="96" height="96" />}
+        <h1 className="h1">{a.name}{a.verified && <span className="vbadge" title="Artiste vérifié">✔</span>}</h1>
+      </div>
       {a.bio && <p className="lead">{a.bio}</p>}
+      <p className="muted small">{ts.reduce((n, t) => n + (t.plays || 0), 0)} écoutes · ♥ {ts.reduce((n, t) => n + likeCount(db, t.id), 0)}</p>
+      <div className="links">
+        {a.links?.instagram && <a className="btn small ghost" href={a.links.instagram} target="_blank" rel="noopener noreferrer">Instagram</a>}
+        {a.links?.tiktok && <a className="btn small ghost" href={a.links.tiktok} target="_blank" rel="noopener noreferrer">TikTok</a>}
+        {a.links?.youtube && <a className="btn small ghost" href={a.links.youtube} target="_blank" rel="noopener noreferrer">YouTube</a>}
+        {a.links?.whatsapp && <a className="btn small ghost" href={`https://wa.me/${a.links.whatsapp.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer">WhatsApp</a>}
+      </div>
       <section><h2>Sorties</h2><div className="grid">{als.map((al) => <AlbumCard key={al.id} al={al} />)}</div></section>
       <section><h2>Titres</h2><ul className="tracks">{ts.map((t) => <TrackRow key={t.id} t={t} showArtist={false} />)}</ul></section>
     </>

@@ -49,7 +49,7 @@ function seed() {
 
 function emptyDb() {
   return {
-    users: [], artists: [], albums: [], tracks: [], purchases: [], notifications: [], likes: [], likeCounts: {}, members: [],
+    users: [], artists: [], albums: [], tracks: [], purchases: [], notifications: [], likes: [], likeCounts: {}, members: [], priv: {}, notes: {}, invites: {}, payouts: [], requests: [],
     settings: {
       commissionPct: 20, promoCommissionPct: 15, promoMonths: 6, launchAt: Date.now(), minPrice: MIN_PRICE,
       paymentMethods: [
@@ -73,6 +73,11 @@ let db = REMOTE ? emptyDb() : load()
 if (!db.notifications) db.notifications = []
 if (!db.likes) db.likes = []
 if (!db.likeCounts) db.likeCounts = {}
+if (!db.priv) db.priv = {}
+if (!db.notes) db.notes = {}
+if (!db.invites) db.invites = {}
+if (!db.payouts) db.payouts = []
+if (!db.requests) db.requests = []
 let me = null // utilisateur connecté (mode Supabase)
 let version = 0
 const listeners = new Set()
@@ -202,7 +207,7 @@ export function checkout(user, cartItems, methodId) {
     const artistId = src.artistId
     const p = {
       id: uid('p-'), userId: user.id, itemType: it.type, itemId: it.id, artistId,
-      amount: src.price, commissionPct: pct, method: method.id, at: Date.now(),
+      amount: src.price, commissionPct: db.priv?.[artistId]?.commissionPct ?? pct, method: method.id, at: Date.now(),
     }
     db.purchases.push(p)
     created.push(p)
@@ -299,7 +304,7 @@ const frError = (m = '') => {
 }
 const must = ({ data, error }) => { if (error) throw new Error(frError(error.message)); return data }
 
-const mapArtist = (a) => ({ id: a.id, userId: a.user_id, name: a.name, genre: a.genre, bio: a.bio, status: a.status, account: a.account, createdAt: ms(a.created_at) })
+const mapArtist = (a) => ({ photoPath: a.photo_path || '', city: a.city || '', links: a.links || {}, verified: !!a.verified, id: a.id, userId: a.user_id, name: a.name, genre: a.genre, bio: a.bio, status: a.status, account: a.account, createdAt: ms(a.created_at) })
 const mapAlbum = (r) => ({ coverPath: r.cover_path, videoUrl: r.video_url || '', id: r.id, artistId: r.artist_id, title: r.title, kind: r.kind, color: r.color, price: r.price, status: r.status, createdAt: ms(r.created_at) })
 const mapTrack = (t) => ({ lyrics: t.lyrics || '', id: t.id, albumId: t.release_id, artistId: t.artist_id, title: t.title, duration: t.duration, price: t.price, seed: t.seed, audioName: t.audio_name, audioPath: t.audio_path, previewPath: t.preview_path, status: t.status, plays: t.plays })
 const mapPurchase = (p) => ({ id: p.id, userId: p.user_id, itemType: p.item_type === 'release' ? 'album' : 'track', itemId: p.item_id, artistId: p.artist_id, amount: p.amount, commissionPct: Number(p.commission_pct), method: p.method, at: ms(p.created_at) })
@@ -325,7 +330,7 @@ export function refresh() {
         await supabase.from('likes').upsert(g.map((id) => ({ user_id: session.user.id, track_id: id })), { onConflict: 'user_id,track_id', ignoreDuplicates: true })
         setGuestLikes([])
       }
-      const [st, ar, re, tr, pu, pr, no, lk, lc] = await Promise.all([
+      const [st, ar, re, tr, pu, pr, no, lk, lc, ap, an, po, rq, iv] = await Promise.all([
         supabase.from('settings').select('*').eq('id', 1).maybeSingle(),
         supabase.from('artists').select('*').order('created_at'),
         supabase.from('releases').select('*').order('created_at'),
@@ -335,6 +340,11 @@ export function refresh() {
         supabase.from('notifications').select('*').order('created_at', { ascending: false }).limit(50),
         session ? supabase.from('likes').select('track_id').order('created_at', { ascending: false }) : Promise.resolve({ data: [] }),
         supabase.rpc('track_like_counts'),
+        session ? supabase.from('artist_private').select('*') : Promise.resolve({ data: [] }),
+        session ? supabase.from('artist_notes').select('*') : Promise.resolve({ data: [] }),
+        session ? supabase.from('payouts').select('*').order('created_at', { ascending: false }) : Promise.resolve({ data: [] }),
+        session ? supabase.from('artist_requests').select('*').order('created_at', { ascending: false }) : Promise.resolve({ data: [] }),
+        session ? supabase.from('artist_invites').select('*') : Promise.resolve({ data: [] }),
       ])
       const next = emptyDb()
       if (st.data) next.settings = mapSettings(st.data)
@@ -343,6 +353,11 @@ export function refresh() {
       next.tracks = (tr.data || []).map(mapTrack)
       next.purchases = (pu.data || []).map(mapPurchase)
       next.notifications = (no.data || []).map((n) => ({ id: n.id, title: n.title, body: n.body, url: n.url, at: ms(n.created_at) }))
+      next.priv = Object.fromEntries((ap.data || []).map((r) => [r.artist_id, { payoutMethod: r.payout_method, payoutNumber: r.payout_number, commissionPct: r.commission_pct == null ? null : Number(r.commission_pct), contractStart: r.contract_start || '' }]))
+      next.notes = Object.fromEntries((an.data || []).map((r) => [r.artist_id, r.notes]))
+      next.payouts = (po.data || []).map((r) => ({ id: r.id, artistId: r.artist_id, amount: r.amount, method: r.method, reference: r.reference, note: r.note, at: ms(r.created_at) }))
+      next.requests = (rq.data || []).map((r) => ({ id: r.id, artistId: r.artist_id, kind: r.kind, message: r.message, status: r.status, reply: r.reply, at: ms(r.created_at) }))
+      next.invites = Object.fromEntries((iv.data || []).map((r) => [r.artist_id, r.email]))
       next.likes = (lk.data || []).map((r) => ({ userId: session.user.id, trackId: r.track_id }))
       next.likeCounts = Object.fromEntries((lc.data || []).map((r) => [r.track_id, Number(r.n)]))
       me = pr.data ? mapProfile(pr.data, session.user.email) : null
@@ -525,7 +540,7 @@ export async function updateArtist(admin, id, { name, genre, bio, status }) {
   requireAdmin(admin)
   if (!(name || '').trim()) throw new Error('Le nom ne peut pas être vide.')
   if (db.artists.some((a) => a.id !== id && a.name.toLowerCase() === name.trim().toLowerCase())) throw new Error('Un artiste porte déjà ce nom.')
-  const row = { name: name.trim(), genre: (genre || '').trim(), bio: (bio || '').trim(), status: cleanStatus(status) }
+  const row = { name: name.trim(), genre: (genre || '').trim(), bio: (bio || '').trim(), status: ['approved', 'rejected', 'pending'].includes(status) ? status : 'approved' }
   if (REMOTE) { must(await supabase.from('artists').update(row).eq('id', id).select()); return refresh() }
   Object.assign(db.artists.find((a) => a.id === id), row); save()
 }
@@ -702,4 +717,125 @@ export function autoPush() {
     setTimeout(() => { enablePush().catch(() => {}) }, st === 'granted' ? 0 : 2500)
   }
   window.addEventListener('pointerdown', go, { once: true })
+}
+
+
+/* ---------- Gestion des artistes : fiche, contrat, versements, demandes ---------- */
+export const PAYOUT_METHODS = [['momo', 'MTN Mobile Money'], ['om', 'Orange Money'], ['virement', 'Virement bancaire'], ['especes', 'Espèces']]
+export const REQUEST_KINDS = [['track', 'Ajouter un titre ou une sortie'], ['edit', 'Modifier une information'], ['payout', 'Question sur un versement'], ['other', 'Autre demande']]
+export function photoUrl(path) {
+  if (!path) return null
+  if (path.startsWith('data:')) return path
+  return REMOTE ? supabase.storage.from('covers').getPublicUrl(path).data.publicUrl : null
+}
+const fileToDataUrl = (blob) => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(blob) })
+
+/** Montants d'un artiste : ventes brutes, part de l'artiste (après commission), déjà versé, reste dû. */
+export function artistBalance(d, artistId) {
+  const sales = d.purchases.filter((p) => p.artistId === artistId)
+  const gross = sales.reduce((t, p) => t + p.amount, 0)
+  const net = Math.round(sales.reduce((t, p) => t + p.amount * (1 - p.commissionPct / 100), 0))
+  const paid = d.payouts.filter((x) => x.artistId === artistId).reduce((t, x) => t + x.amount, 0)
+  return { sales: sales.length, gross, net, paid, due: net - paid }
+}
+export function artistCommission(d, artistId) {
+  const v = d.priv?.[artistId]?.commissionPct
+  return v == null ? currentCommission(d) : v
+}
+export const openRequests = (d) => d.requests.filter((r) => r.status === 'open').length
+
+export async function updateArtistProfile(admin, id, f) {
+  requireAdmin(admin)
+  const name = (f.name || '').trim()
+  if (!name) throw new Error('Le nom ne peut pas être vide.')
+  if (db.artists.some((a) => a.id !== id && a.name.toLowerCase() === name.toLowerCase())) throw new Error('Un artiste porte déjà ce nom.')
+  const status = ['approved', 'rejected', 'pending'].includes(f.status) ? f.status : 'approved'
+  const links = {}
+  ;['instagram', 'tiktok', 'youtube', 'whatsapp'].forEach((k) => { const v = (f.links?.[k] || '').trim(); if (v) links[k] = v })
+  const row = { name, genre: (f.genre || '').trim(), bio: (f.bio || '').trim(), city: (f.city || '').trim(), links, verified: !!f.verified, status }
+  let photoPath
+  if (f.photo) {
+    const blob = await resizeImage(f.photo)
+    if (REMOTE) {
+      photoPath = `artists/${id}-${Date.now()}.jpg`
+      const up = await supabase.storage.from('covers').upload(photoPath, blob, { contentType: 'image/jpeg', upsert: true })
+      if (up.error) throw new Error('Photo non envoyée : ' + frError(up.error.message))
+    } else photoPath = await fileToDataUrl(blob)
+    row.photo_path = photoPath
+  }
+  if (REMOTE) { must(await supabase.from('artists').update(row).eq('id', id).select()); return refresh() }
+  const a = db.artists.find((x) => x.id === id)
+  const { photo_path, ...rest } = row
+  Object.assign(a, rest, photo_path ? { photoPath: photo_path } : {}); save()
+}
+export async function removeArtistPhoto(admin, id) {
+  requireAdmin(admin)
+  if (REMOTE) { must(await supabase.from('artists').update({ photo_path: null }).eq('id', id).select()); return refresh() }
+  db.artists.find((x) => x.id === id).photoPath = ''; save()
+}
+export async function updateArtistPrivate(admin, id, f) {
+  requireAdmin(admin)
+  const c = f.commissionPct === '' || f.commissionPct == null ? null : Number(f.commissionPct)
+  if (c != null && !(c >= 0 && c <= 60)) throw new Error('La commission doit être comprise entre 0 et 60 %.')
+  const row = { payoutMethod: f.payoutMethod || 'momo', payoutNumber: (f.payoutNumber || '').trim(), commissionPct: c, contractStart: f.contractStart || '' }
+  if (REMOTE) {
+    must(await supabase.from('artist_private').upsert({ artist_id: id, payout_method: row.payoutMethod, payout_number: row.payoutNumber, commission_pct: c, contract_start: row.contractStart || null }, { onConflict: 'artist_id' }).select())
+    return refresh()
+  }
+  db.priv[id] = row; save()
+}
+export async function saveArtistNotes(admin, id, notes) {
+  requireAdmin(admin)
+  if (REMOTE) { must(await supabase.from('artist_notes').upsert({ artist_id: id, notes: notes || '' }, { onConflict: 'artist_id' }).select()); return refresh() }
+  db.notes[id] = notes || ''; save()
+}
+export async function addPayout(admin, { artistId, amount, method, reference, note }) {
+  requireAdmin(admin)
+  const n = Math.round(Number(amount))
+  if (!(n > 0)) throw new Error('Indique un montant positif.')
+  const bal = artistBalance(db, artistId)
+  if (n > bal.due && !window.confirm(`Ce versement (${n} FCFA) dépasse le solde dû (${bal.due} FCFA). Continuer ?`)) return
+  const row = { artist_id: artistId, amount: n, method: method || 'momo', reference: (reference || '').trim(), note: (note || '').trim() }
+  if (REMOTE) { must(await supabase.from('payouts').insert(row).select()); return refresh() }
+  db.payouts.unshift({ id: uid('po-'), artistId, amount: n, method: row.method, reference: row.reference, note: row.note, at: Date.now() }); save()
+}
+export async function deletePayout(admin, id) {
+  requireAdmin(admin)
+  if (REMOTE) { must(await supabase.from('payouts').delete().eq('id', id).select()); return refresh() }
+  db.payouts = db.payouts.filter((x) => x.id !== id); save()
+}
+export async function sendRequest(user, { kind, message }) {
+  const a = myArtist(db, user)
+  if (!a) throw new Error('Réservé aux artistes.')
+  const text = (message || '').trim()
+  if (text.length < 3) throw new Error('Écris ta demande.')
+  const k = REQUEST_KINDS.some(([x]) => x === kind) ? kind : 'other'
+  if (REMOTE) { must(await supabase.from('artist_requests').insert({ artist_id: a.id, kind: k, message: text }).select()); return refresh() }
+  db.requests.unshift({ id: uid('rq-'), artistId: a.id, kind: k, message: text, status: 'open', reply: '', at: Date.now() }); save()
+}
+export async function resolveRequest(admin, id, { reply, status }) {
+  requireAdmin(admin)
+  const st = status === 'open' ? 'open' : 'done'
+  if (REMOTE) { must(await supabase.from('artist_requests').update({ status: st, reply: (reply || '').trim() }).eq('id', id).select()); return refresh() }
+  Object.assign(db.requests.find((r) => r.id === id), { status: st, reply: (reply || '').trim() }); save()
+}
+/** Modifier l'email d'invitation d'un artiste qui n'a pas encore créé son compte. */
+export async function updateInviteEmail(admin, artistId, email) {
+  requireAdmin(admin)
+  const e = (email || '').trim().toLowerCase()
+  if (!e.includes('@')) throw new Error('Entre un email valide.')
+  if (!REMOTE) throw new Error('Disponible avec la vraie base.')
+  const r = await supabase.from('artist_invites').upsert({ artist_id: artistId, email: e }, { onConflict: 'artist_id' }).select()
+  if (r.error) throw new Error(/duplicate|unique/i.test(r.error.message) ? 'Cet email est déjà utilisé par un autre artiste.' : frError(r.error.message))
+  return refresh()
+}
+export async function cancelInvite(admin, artistId) {
+  requireAdmin(admin)
+  if (!REMOTE) throw new Error('Disponible avec la vraie base.')
+  must(await supabase.from('artist_invites').delete().eq('artist_id', artistId).select())
+  return refresh()
+}
+export function inviteMessage(artist, email) {
+  const url = typeof window !== 'undefined' ? window.location.origin : 'https://vibestore-dist.vercel.app'
+  return `Bonjour ${artist.name} 👋\nVibeStore a préparé ta fiche d’artiste. Pour activer ton studio :\n1. Ouvre ${url}/compte\n2. Clique sur « Pas encore de compte ? Inscris-toi »\n3. Utilise exactement cet email : ${email}\n4. Confirme ton email, puis connecte-toi.\nTu y suivras tes écoutes, tes ♥ et tes ventes. À très vite !`
 }

@@ -4,7 +4,7 @@ import { catalog, fcfa, likeCount, currentCommission } from '../lib/store'
 const DAY = 86400000
 const PERIODS = [[7, '7 jours'], [30, '30 jours'], [0, 'Tout']]
 
-function Bars({ data }) {
+export function Bars({ data }) {
   const max = Math.max(1, ...data.map((d) => d.v))
   return (
     <div className="bars" role="img" aria-label="Chiffre d’affaires par jour">

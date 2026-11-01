@@ -1,6 +1,35 @@
+import { useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
-import { useDb, useUser, myArtist, currentCommission, fcfa, likeCount } from '../lib/store'
+import { useDb, useUser, myArtist, fcfa, likeCount, artistBalance, artistCommission, photoUrl, sendRequest, REQUEST_KINDS, PAYOUT_METHODS } from '../lib/store'
+import { Bars } from './AdminOverview'
 import { Empty } from '../components/ui'
+
+const DAY = 86400000
+const dt = (t) => new Date(t).toLocaleDateString('fr-FR')
+const methodLabel = (id) => (PAYOUT_METHODS.find(([k]) => k === id) || [0, id])[1]
+
+function RequestForm({ user }) {
+  const [f, setF] = useState({ kind: 'track', message: '' })
+  const [err, setErr] = useState('')
+  const [ok, setOk] = useState('')
+  async function submit(e) {
+    e.preventDefault(); setErr(''); setOk('')
+    try { await sendRequest(user, f); setF({ ...f, message: '' }); setOk('Demande envoyée à l’équipe VibeStore.') } catch (x) { setErr(x.message) }
+  }
+  return (
+    <form className="panel form" onSubmit={submit}>
+      <h2>Écrire à l’équipe VibeStore</h2>
+      <p className="muted small">Nouveau titre, correction d’une information, question sur un versement : nous répondons ici.</p>
+      <label className="field"><span>Sujet</span>
+        <select id="rqkind" value={f.kind} onChange={(e) => setF({ ...f, kind: e.target.value })}>{REQUEST_KINDS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
+      </label>
+      <label className="field"><span>Ta demande</span><textarea id="rqmsg" rows="3" value={f.message} onChange={(e) => setF({ ...f, message: e.target.value })} /></label>
+      {err && <p className="err" role="alert">{err}</p>}
+      {ok && <p className="ok" role="status">{ok}</p>}
+      <button className="btn buy" type="submit">Envoyer la demande</button>
+    </form>
+  )
+}
 
 // Studio artiste en lecture seule : le compte et les titres sont ajoutés par VibeStore.
 export default function Studio() {
@@ -11,25 +40,36 @@ export default function Studio() {
   const artist = myArtist(db, user)
   if (!artist) return <Empty>Profil artiste introuvable. Contacte VibeStore.</Empty>
 
-  const pct = currentCommission(db)
+  const pct = artistCommission(db, artist.id)
+  const bal = artistBalance(db, artist.id)
+  const photo = photoUrl(artist.photoPath)
+  const priv = db.priv[artist.id]
+  const payouts = db.payouts.filter((x) => x.artistId === artist.id)
+  const reqs = db.requests.filter((r) => r.artistId === artist.id)
   const releases = db.albums.filter((a) => a.artistId === artist.id)
   const tracks = db.tracks.filter((t) => t.artistId === artist.id)
   const sales = db.purchases.filter((p) => p.artistId === artist.id)
-  const gross = sales.reduce((s, p) => s + p.amount, 0)
-  const net = sales.reduce((s, p) => s + p.amount * (1 - p.commissionPct / 100), 0)
-  const likes = tracks.reduce((s, t) => s + likeCount(db, t.id), 0)
   const plays = tracks.reduce((s, t) => s + (t.plays || 0), 0)
+  const likes = tracks.reduce((s, t) => s + likeCount(db, t.id), 0)
   const salesOf = (t) => sales.filter((p) => p.itemType === 'track' && p.itemId === t.id).length
+  const now = Date.now()
+  const series = Array.from({ length: 30 }, (_, i) => {
+    const d = new Date(now - (29 - i) * DAY); const st = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+    return { label: d.getDate() + '/' + (d.getMonth() + 1), v: sales.filter((p) => p.at >= st && p.at < st + DAY).reduce((t, p) => t + p.amount, 0) }
+  })
 
   return (
     <>
       <span className="eyebrow">Espace artiste</span>
-      <h1 className="h1">Studio de {artist.name}</h1>
+      <div className="artisthead">
+        {photo && <img className="avatar" src={photo} alt="" width="72" height="72" />}
+        <h1 className="h1">Studio de {artist.name}{artist.verified && <span className="vbadge" title="Artiste vérifié">✔</span>}</h1>
+      </div>
 
       <div className="infobox">
         <div>
           <b>VibeStore gère ton catalogue.</b>
-          <p>Ton compte et tes titres sont ajoutés par l’équipe VibeStore. Pour ajouter ou modifier un titre, écris-nous : nous le publions pour toi.</p>
+          <p>Pour ajouter ou modifier un titre, envoie-nous une demande plus bas : nous le publions pour toi.</p>
         </div>
       </div>
 
@@ -37,10 +77,28 @@ export default function Studio() {
         <div className="stat"><span>Écoutes</span><b>{plays}</b></div>
         <div className="stat"><span>♥ Appréciations</span><b>{likes}</b></div>
         <div className="stat"><span>Ventes</span><b>{sales.length}</b></div>
-        <div className="stat"><span>Chiffre d’affaires</span><b>{fcfa(gross)}</b></div>
-        <div className="stat hi"><span>Ta part ({100 - pct} %)</span><b>{fcfa(net)}</b></div>
+        <div className="stat"><span>Chiffre d’affaires</span><b>{fcfa(bal.gross)}</b></div>
       </div>
-      <p className="muted small">Commission VibeStore actuelle : {pct} %. Le retrait Mobile Money arrive en phase 2.</p>
+
+      <section className="panel">
+        <h2>Mes revenus</h2>
+        <div className="stats">
+          <div className="stat"><span>Ta part ({100 - pct} %)</span><b>{fcfa(bal.net)}</b></div>
+          <div className="stat"><span>Déjà versé</span><b>{fcfa(bal.paid)}</b></div>
+          <div className="stat hi"><span>Reste à recevoir</span><b>{fcfa(bal.due)}</b></div>
+        </div>
+        <p className="muted small">Commission VibeStore : {pct} %.{priv?.payoutNumber ? ` Versement sur ${methodLabel(priv.payoutMethod)} · ${priv.payoutNumber}.` : ' Ton numéro de versement n’est pas encore enregistré : écris-le-nous ci-dessous.'}</p>
+        <h3>Ventes sur 30 jours</h3>
+        <Bars data={series} />
+        {payouts.length > 0 && (
+          <>
+            <h3>Mes versements</h3>
+            <ul className="tracks">{payouts.map((x) => (
+              <li key={x.id} className="track simple"><div className="tmeta"><b>{fcfa(x.amount)}</b><span>{dt(x.at)} · {methodLabel(x.method)}{x.reference ? ` · réf. ${x.reference}` : ''}</span></div></li>
+            ))}</ul>
+          </>
+        )}
+      </section>
 
       <section>
         <h2>Mes titres</h2>
@@ -69,6 +127,19 @@ export default function Studio() {
           </ul>
         ) : <Empty>Aucune sortie.</Empty>}
       </section>
+
+      <RequestForm user={user} />
+      {reqs.length > 0 && (
+        <section>
+          <h2>Mes demandes</h2>
+          <ul className="tracks">{reqs.map((r) => (
+            <li key={r.id} className="track simple">
+              <div className="tmeta"><b>{(REQUEST_KINDS.find(([k]) => k === r.kind) || [0, r.kind])[1]}</b><span>{dt(r.at)} · {r.message}</span>{r.reply && <span className="ok">Réponse de VibeStore : {r.reply}</span>}</div>
+              <span className={'badge' + (r.status === 'done' ? ' ok' : '')}>{r.status === 'done' ? 'Traitée' : 'En cours'}</span>
+            </li>
+          ))}</ul>
+        </section>
+      )}
 
       <section className="panel">
         <h2>Ta page publique</h2>
