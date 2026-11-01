@@ -252,3 +252,9 @@ nav a.bell { position: relative; display: inline-flex; align-items: center; padd
 .lyrics .lines { position: relative; }
 .slidetools .iconbtn{position:relative}
 .cnt{display:block;font-size:.65rem;line-height:1;margin-top:2px;min-height:.65rem}
+.install{position:fixed;left:12px;right:12px;bottom:calc(76px + env(safe-area-inset-bottom));z-index:60;display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:16px;background:var(--surface);border:1px solid var(--line);box-shadow:0 10px 30px #000a;max-width:560px;margin:0 auto}
+.install img{border-radius:10px;flex:none}
+.install .itext{display:flex;flex-direction:column;gap:2px;font-size:.85rem;flex:1;min-width:0}
+.install .itext span{opacity:.85}
+.sharei{font-style:normal;display:inline-block;border:1px solid currentColor;border-radius:5px;padding:0 5px}
+@media(min-width:900px){.install{bottom:20px}}

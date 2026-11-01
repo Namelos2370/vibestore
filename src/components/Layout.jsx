@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useApp } from '../lib/AppContext'
 import { autoPush, useDb, useUser, useUnread, signOut, trialDaysLeft, mmss, PREVIEW_SECONDS, fcfa } from '../lib/store'
 import { Cover } from './ui'
+import InstallPrompt from './InstallPrompt'
 
 function Player() {
   const { track, playing, pos, mode, notice, setNotice, toggle, seek, addToCart, audioDuration } = useApp()
@@ -78,6 +79,7 @@ export default function Layout() {
         <span>Mode démonstration : données d’exemple, paiement simulé.</span>
       </footer>
       <Player />
+      <InstallPrompt />
       <nav className="tabbar" aria-label="Navigation mobile">
         {[
           ['/', 'Accueil', 'M4 11l8-7 8 7v9h-5v-6H9v6H4z', true],

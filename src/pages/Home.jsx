@@ -1,11 +1,13 @@
 import { Link } from 'react-router-dom'
 import { useDb, useUser, catalog, fcfa, trialDaysLeft, MIN_PRICE } from '../lib/store'
 import { AlbumCard, TrackRow, Empty } from '../components/ui'
+import Dashboard from './Dashboard'
 
 export default function Home() {
   const db = useDb()
   const user = useUser()
   const { albums, tracks } = catalog(db)
+  if (user) return <Dashboard user={user} />
   const trending = [...tracks].sort((a, b) => b.plays - a.plays).slice(0, 5)
   const news = [...albums].sort((a, b) => b.createdAt - a.createdAt).slice(0, 6)
 
@@ -18,8 +20,7 @@ export default function Home() {
           <p className="lead">30 secondes gratuites sur chaque titre pendant 1 mois, puis tu achètes ce que tu aimes à partir de {fcfa(MIN_PRICE)}. Les artistes gardent l’essentiel.</p>
           <div className="row">
             <Link className="btn buy" to="/explorer">Explorer le catalogue</Link>
-            {!user && <Link className="btn ghost" to="/compte">Créer un compte</Link>}
-            {user && <span className="badge">Essai gratuit : {trialDaysLeft(user)} jour(s) restant(s)</span>}
+            <Link className="btn ghost" to="/compte">Créer un compte</Link>
           </div>
         </div>
         <img className="herologo" src="/logo.jpg" alt="Logo VibeStore : casque audio et panier" width="420" height="420" />
