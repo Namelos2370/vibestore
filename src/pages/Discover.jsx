@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useApp } from '../lib/AppContext'
-import { useDb, useUser, catalog, listenRight, mmss, PREVIEW_SECONDS, myLikes, likeCount, toggleLike } from '../lib/store'
+import { useDb, useUser, catalog, isClip, listenRight, mmss, PREVIEW_SECONDS, myLikes, likeCount, toggleLike } from '../lib/store'
 import { AddButton, Cover, Empty, Clip } from '../components/ui'
 import { parseLyrics, currentLine } from '../lib/lyrics'
 
@@ -43,8 +43,10 @@ export default function Discover() {
     try { await toggleLike(t.id); if (!user && !was) setToast('Crée un compte pour retrouver tes coups de cœur dans Ma musique.') } catch (e) { setToast(e.message) }
   }
   const [toast, setToast] = useState('')
-  const { sounds: tracks } = catalog(db)
-  const items = useMemo(() => [...tracks].sort((a, b) => b.plays - a.plays || a.title.localeCompare(b.title)), [tracks.length]) // eslint-disable-line
+  const { tracks: all } = catalog(db)
+  const [kind, setKind] = useState('all')
+  const tracks = kind === 'all' ? all : all.filter((t) => (kind === 'clip') === isClip(t))
+  const items = useMemo(() => [...tracks].sort((a, b) => b.plays - a.plays || a.title.localeCompare(b.title)), [tracks.length, kind]) // eslint-disable-line
   const feedRef = useRef(null)
   useEffect(() => { document.body.classList.add('immersive'); return () => document.body.classList.remove('immersive') }, [])
   const [active, setActive] = useState(0)
@@ -89,10 +91,19 @@ export default function Discover() {
     setTimeout(() => setToast(''), 2500)
   }
 
-  if (!items.length) return <Empty>Aucun titre pour le moment.</Empty>
+  const chips = (
+    <div className="feedchips" role="tablist" aria-label="Filtrer le flux">
+      {[['all', 'Tout'], ['sound', '🎵 Sons'], ['clip', '🎬 Clips']].map(([k, l]) => (
+        <button key={k} type="button" role="tab" aria-selected={kind === k} className={kind === k ? 'on' : ''} onClick={() => { setKind(k); setActive(0); feedRef.current?.scrollTo({ top: 0 }) }}>{l}</button>
+      ))}
+    </div>
+  )
+  if (!all.length) return <Empty>Aucun titre pour le moment.</Empty>
 
   return (
     <div className="feedwrap">
+    {chips}
+    {!items.length && <Empty>Rien dans cette catégorie pour le moment.</Empty>}
     <div className="feed" ref={feedRef} aria-label="Découvrir de la musique">
       {items.map((t, i) => {
         const on = track && track.id === t.id
@@ -105,7 +116,7 @@ export default function Discover() {
             <div className="slidemeta">
               <h2>{t.title}</h2>
               <p><Link to={`/artiste/${t.artist.id}`}>{t.artist.name}</Link>{t.artist.verified && <span className="vbadge">✔</span>} · <Link to={`/sortie/${t.album.id}`}>{t.album.title}</Link></p>
-              <span className="badge">{right === 'full' ? 'Écoute complète' : 'Aperçu 30 s'}</span>
+              {isClip(t) && <span className="badge clip">🎬 Clip</span>} <span className="badge">{right === 'full' ? 'Écoute complète' : 'Aperçu 30 s'}</span>
               {on && playing && <span className="eq" aria-hidden="true"><i /><i /><i /><i /></span>}
             </div>
             {on && <div className="slidebar" aria-hidden="true"><i style={{ width: pct + '%' }} /><span>{mmss(pos)}</span></div>}
