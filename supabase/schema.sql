@@ -198,6 +198,7 @@ begin
   if uid is null then raise exception 'Connecte-toi pour acheter.'; end if;
   if exists (select 1 from public.profiles where id = uid and blocked) then raise exception 'Ce compte est suspendu.'; end if;
   select * into s from public.settings where id = 1;
+  if not s.purchases_enabled then raise exception 'Les achats ne sont pas encore ouverts.'; end if;
   if not s.demo_payments then raise exception 'Le paiement simulé est désactivé.'; end if;
   if not exists (select 1 from jsonb_array_elements(s.payment_methods) m where m->>'id' = p_method and (m->>'enabled')::boolean) then
     raise exception 'Choisis un moyen de paiement disponible.';
@@ -459,3 +460,8 @@ end $$;
 drop trigger if exists guard_profile_update on public.profiles;
 create trigger guard_profile_update before update on public.profiles
   for each row execute function public.guard_profile_update();
+
+-- ============================================================
+-- v0.9 : interrupteur des achats (en attendant les API de paiement)
+-- ============================================================
+alter table public.settings add column if not exists purchases_enabled boolean not null default true;

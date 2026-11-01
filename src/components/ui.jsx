@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useApp } from '../lib/AppContext'
-import { useDb, useUser, owns, fcfa, mmss, coverUrl } from '../lib/store'
+import { useDb, useUser, owns, fcfa, mmss, coverUrl, purchasesOn } from '../lib/store'
 
 export function Cover({ album, size }) {
   const c = album?.color || '#8B5CF6'
@@ -17,6 +17,7 @@ export function AddButton({ type, id, price, compact }) {
   const user = useUser()
   const { cart, addToCart, removeFromCart } = useApp()
   if (owns(db, user, { type, id })) return <span className="badge ok">Acheté</span>
+  if (!purchasesOn(db)) return <span className="badge soon" title="Les achats ouvrent bientôt">Achat bientôt</span>
   const inCart = cart.some((x) => x.type === type && x.id === id)
   return inCart ? (
     <button className="btn small ghost" type="button" onClick={() => removeFromCart(type, id)}>Dans le panier ✓</button>

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import {
   useDb, fcfa, likeCount, currentCommission, artistBalance, artistCommission, PAYOUT_METHODS, REQUEST_KINDS, PLATFORMS, DISTRIBUTION, photoUrl,
   updateArtistProfile, removeArtistPhoto, updateArtistPrivate, saveArtistNotes, addPayout, deletePayout, resolveRequest,
-  updateInviteEmail, cancelInvite, inviteMessage,
+  updateInviteEmail, cancelInvite, inviteMessage, changeArtistEmail,
 } from '../lib/store'
 import { Bars } from './AdminOverview'
 import { Empty } from '../components/ui'
@@ -35,7 +35,7 @@ export function ArtistSheet({ admin, artist: a, onClose }) {
   const [c, setC] = useState({ commissionPct: priv.commissionPct ?? '', contractStart: priv.contractStart || '', payoutMethod: priv.payoutMethod || 'momo', payoutNumber: priv.payoutNumber || '', distribution: priv.distribution || 'none', distributor: priv.distributor || 'Log Music' })
   const [notes, setNotes] = useState(db.notes[a.id] || '')
   const [po, setPo] = useState({ amount: '', method: priv.payoutMethod || 'momo', reference: '', note: '' })
-  const [email, setEmail] = useState(db.invites[a.id] || '')
+  const [email, setEmail] = useState(db.invites[a.id] || db.members?.find((m) => m.id === a.userId)?.email || db.users.find((u) => u.id === a.userId)?.email || '')
   const [msg, setMsg] = useState('')
   const [err, setErr] = useState('')
   const bal = artistBalance(db, a.id)
@@ -148,12 +148,20 @@ export function ArtistSheet({ admin, artist: a, onClose }) {
           <p className="muted small">Cet artiste n’a pas encore créé son compte. Envoie-lui le message ci-dessous par WhatsApp ou email.</p>
           <div className="row wrap">
             <label className="field grow2"><span>Email d’invitation</span><input value={email} onChange={(e) => setEmail(e.target.value)} /></label>
-            <button className="btn small ghost" type="button" onClick={run('Email modifié.', () => updateInviteEmail(admin, a.id, email))}>Changer l’email</button>
+            <button className="btn small ghost" type="button" onClick={run('Email modifié.', () => changeArtistEmail(admin, a.id, email))}>Changer l’email</button>
             <button className="btn small ghost" type="button" onClick={run('Message copié : colle-le dans WhatsApp ou un email.', async () => { await navigator.clipboard.writeText(inviteMessage(a, email || db.invites[a.id] || '')) })}>Copier le message</button>
             <button className="btn small ghost danger" type="button" onClick={() => window.confirm('Annuler l’invitation ? La fiche et les titres restent en ligne.') && run('Invitation annulée.', () => cancelInvite(admin, a.id))()}>Annuler l’invitation</button>
           </div>
         </>
-      ) : <p className="ok">Compte actif : l’artiste a accès à son studio.</p>}
+      ) : (
+        <>
+          <p className="ok">Compte actif : l’artiste a accès à son studio.</p>
+          <div className="row wrap">
+            <label className="field grow2"><span>Email de connexion</span><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></label>
+            <button className="btn small ghost" type="button" onClick={() => window.confirm(`Changer l’email de connexion de ${a.name} en ${email} ? Il devra l’utiliser pour se connecter (son mot de passe reste le même).`) && run('Email modifié. Préviens l’artiste.', () => changeArtistEmail(admin, a.id, email))()}>Changer l’email</button>
+          </div>
+        </>
+      )}
 
       <h3>Notes internes</h3>
       <p className="muted small">Visibles par l’équipe VibeStore uniquement.</p>

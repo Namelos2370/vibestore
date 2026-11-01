@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useApp } from '../lib/AppContext'
-import { useDb, useUser, catalog, checkout, owns, fcfa } from '../lib/store'
+import { useDb, useUser, catalog, checkout, owns, fcfa, purchasesOn } from '../lib/store'
 import { Empty } from '../components/ui'
 
 export default function Cart() {
@@ -15,6 +15,8 @@ export default function Cart() {
   const [phone, setPhone] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+
+  if (!purchasesOn(db)) return <Empty>Les achats ouvrent bientôt. En attendant, écoute les extraits de 30 s et ajoute tes ♥ : tu seras prévenu dès l’ouverture.</Empty>
 
   const lines = cart
     .map((c) => {

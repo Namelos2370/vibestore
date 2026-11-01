@@ -198,6 +198,7 @@ export function checkout(user, cartItems, methodId) {
   if (REMOTE) return remoteCheckout(user, cartItems, methodId)
   if (!user) throw new Error('Connecte-toi pour acheter.')
   if (user.blocked) throw new Error('Ce compte est suspendu.')
+  if (!purchasesOn(db)) throw new Error('Les achats ne sont pas encore ouverts.')
   const method = db.settings.paymentMethods.find((m) => m.id === methodId && m.enabled)
   if (!method) throw new Error('Choisis un moyen de paiement disponible.')
   const pct = currentCommission()
@@ -282,6 +283,8 @@ export function updateSettings(patch) {
   Object.assign(db.settings, patch)
   save()
 }
+/** Les achats sont-ils ouverts ? (interrupteur admin, en attendant les API de paiement) */
+export const purchasesOn = (d) => d.settings.purchasesEnabled !== false
 export function togglePayment(id) {
   if (REMOTE) return remoteTogglePayment(id)
   const m = db.settings.paymentMethods.find((x) => x.id === id)
@@ -312,7 +315,7 @@ const mapTrack = (t) => ({ lyrics: t.lyrics || '', id: t.id, albumId: t.release_
 const mapPurchase = (p) => ({ id: p.id, userId: p.user_id, itemType: p.item_type === 'release' ? 'album' : 'track', itemId: p.item_id, artistId: p.artist_id, amount: p.amount, commissionPct: Number(p.commission_pct), method: p.method, at: ms(p.created_at) })
 const mapSettings = (s) => ({
   commissionPct: Number(s.commission_pct), promoCommissionPct: Number(s.promo_commission_pct), promoMonths: s.promo_months,
-  launchAt: ms(s.launch_at), minPrice: s.min_price, paymentMethods: s.payment_methods,
+  launchAt: ms(s.launch_at), minPrice: s.min_price, paymentMethods: s.payment_methods, purchasesEnabled: s.purchases_enabled !== false,
 })
 const mapProfile = (p, email) => ({
   id: p.id, email: p.email || email, name: p.name, role: p.role, artistStatus: p.role === 'artist' ? 'approved' : 'none',
@@ -417,6 +420,7 @@ function remoteCountPlay(trackId) {
 }
 async function remoteCheckout(user, cartItems, methodId) {
   if (!user) throw new Error('Connecte-toi pour acheter.')
+  if (!purchasesOn(db)) throw new Error('Les achats ne sont pas encore ouverts.')
   const rows = must(await supabase.rpc('simulate_checkout', { p_items: cartItems, p_method: methodId }))
   await refresh()
   return (rows || []).map(mapPurchase)
@@ -496,7 +500,7 @@ async function remoteCreateRelease(admin, { artistId, title, kind, albumPrice, c
   return rel.id
 }
 async function remoteUpdateSettings(patch) {
-  const m = { commissionPct: 'commission_pct', promoCommissionPct: 'promo_commission_pct', promoMonths: 'promo_months', minPrice: 'min_price' }
+  const m = { commissionPct: 'commission_pct', promoCommissionPct: 'promo_commission_pct', promoMonths: 'promo_months', minPrice: 'min_price', purchasesEnabled: 'purchases_enabled' }
   const row = {}
   Object.entries(patch).forEach(([k, v]) => { if (m[k]) row[m[k]] = v })
   must(await supabase.from('settings').update(row).eq('id', 1).select())
@@ -869,4 +873,29 @@ export async function setMemberBlocked(admin, id, blocked, reason = '') {
   const u = db.users.find((x) => x.id === id)
   if (u) { u.blocked = !!blocked; u.blockedReason = blocked ? reason : '' }
   save()
+}
+
+/** Changer l'email d'un artiste : invitation (avant inscription) ou compte actif (via le serveur). */
+export async function changeArtistEmail(admin, artistId, email) {
+  requireAdmin(admin)
+  const e = (email || '').trim().toLowerCase()
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) throw new Error('Entre un email valide.')
+  const a = db.artists.find((x) => x.id === artistId)
+  if (!a) throw new Error('Artiste introuvable.')
+  if (!REMOTE) {
+    if (db.users.some((u) => u.email === e && u.id !== a.userId)) throw new Error('Cet email est déjà utilisé.')
+    const u = db.users.find((x) => x.id === a.userId)
+    if (u) u.email = e
+    save()
+    return
+  }
+  if (a.account !== 'active') return updateInviteEmail(admin, artistId, e)
+  const { data: { session } } = await supabase.auth.getSession()
+  let r
+  try {
+    r = await fetch('/api/artist-email', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify({ artistId, email: e }) })
+  } catch { throw new Error('Serveur injoignable. Réessaie dans un instant.') }
+  const j = await r.json().catch(() => ({}))
+  if (!r.ok) throw new Error(j.error || 'Changement impossible.')
+  await refresh()
 }

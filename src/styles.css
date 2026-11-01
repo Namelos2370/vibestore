@@ -312,3 +312,5 @@ textarea{width:100%;font:inherit;color:inherit;background:var(--surface);border:
 .member.blocked{opacity:.75;border-color:#a33}
 .chip.on{background:var(--accent,#8B5CF6);color:#fff}
 .chip.warn{background:#5a1f2a;color:#ffb4c0}
+
+.badge.soon{background:var(--surface2);color:var(--muted,#A59FC0);border:1px dashed var(--line);padding:6px 12px;border-radius:99px;font-size:.8rem;white-space:nowrap}

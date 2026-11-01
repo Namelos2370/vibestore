@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Navigate } from 'react-router-dom'
-import { useDb, useUser, createArtist, createRelease, updateArtist, updateRelease, updateTrack, deleteArtist, deleteRelease, deleteTrack, updateSettings, togglePayment, currentCommission, fcfa, MIN_PRICE, openRequests } from '../lib/store'
+import { useDb, useUser, createArtist, createRelease, updateArtist, updateRelease, updateTrack, deleteArtist, deleteRelease, deleteTrack, updateSettings, togglePayment, currentCommission, fcfa, MIN_PRICE, openRequests, purchasesOn } from '../lib/store'
 import { Empty } from '../components/ui'
 import LyricsEditor from '../components/LyricsEditor'
 import { trackAudioUrl, announce } from '../lib/store'
@@ -344,6 +344,12 @@ export default function Admin() {
 
       {tab === 'reglages' && (
         <>
+          <section className="panel">
+            <h2>Achats</h2>
+            <p className="muted">En attendant le branchement des paiements, tu peux fermer les achats : les boutons d’achat et le panier disparaissent, les extraits et les ♥ restent ouverts. Les achats déjà faits ne changent pas.</p>
+            <p>État actuel : <b>{purchasesOn(db) ? 'achats ouverts' : 'achats fermés'}</b></p>
+            <button className={'btn ' + (purchasesOn(db) ? 'ghost' : 'buy')} type="button" onClick={async () => { try { await updateSettings({ purchasesEnabled: !purchasesOn(db) }) } catch (x) { window.alert(x.message) } }}>{purchasesOn(db) ? 'Fermer les achats' : 'Rouvrir les achats'}</button>
+          </section>
           <section className="panel form">
             <h2>Commission et prix</h2>
             <p className="muted">Commission appliquée aujourd’hui : <b>{currentCommission(db)} %</b></p>

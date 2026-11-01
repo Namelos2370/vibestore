@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useApp } from '../lib/AppContext'
-import { autoPush, useDb, useUser, useUnread, signOut, openRequests, trialDaysLeft, mmss, PREVIEW_SECONDS, fcfa } from '../lib/store'
+import { autoPush, useDb, useUser, useUnread, signOut, openRequests, purchasesOn, trialDaysLeft, mmss, PREVIEW_SECONDS, fcfa } from '../lib/store'
 import { Cover } from './ui'
 import InstallPrompt from './InstallPrompt'
 import { PoweredBy } from './BlueEnergy'
@@ -20,7 +20,7 @@ function Player() {
           {notice.type === 'signup' && (<><span>Crée un compte pour écouter 30 secondes gratuites de chaque musique.</span><button className="btn small buy" type="button" onClick={() => { setNotice(null); nav('/compte') }}>Créer un compte</button></>)}
           {notice.type === 'error' && (<><span>{notice.message}</span><button className="btn small ghost" type="button" onClick={() => setNotice(null)}>Fermer</button></>)}
           {notice.type === 'expired' && (<><span>Ton mois d’essai est terminé. Achète ce titre pour l’écouter en entier.</span><button className="btn small ghost" type="button" onClick={() => setNotice(null)}>Fermer</button></>)}
-          {notice.type === 'previewEnd' && track && (<><span>Fin de l’aperçu de 30 s.{!user && ' Crée un compte gratuit pour 1 mois d’écoute en extraits.'}</span>{!user && <button className="btn small ghost" type="button" onClick={() => { setNotice(null); nav('/compte') }}>Créer un compte</button>}<button className="btn small buy" type="button" onClick={() => { addToCart('track', track.id); setNotice(null); nav('/panier') }}>Acheter · {fcfa(track.price)}</button><button className="btn small ghost" type="button" onClick={() => setNotice(null)}>Fermer</button></>)}
+          {notice.type === 'previewEnd' && track && (<><span>Fin de l’aperçu de 30 s.{!user && ' Crée un compte gratuit pour 1 mois d’écoute en extraits.'}</span>{!user && <button className="btn small ghost" type="button" onClick={() => { setNotice(null); nav('/compte') }}>Créer un compte</button>}{purchasesOn(db) && <button className="btn small buy" type="button" onClick={() => { addToCart('track', track.id); setNotice(null); nav('/panier') }}>Acheter · {fcfa(track.price)}</button>}<button className="btn small ghost" type="button" onClick={() => setNotice(null)}>Fermer</button></>)}
         </div>
       )}
       <div className="prow">
@@ -66,7 +66,7 @@ export default function Layout() {
               <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 17V11a6 6 0 1112 0v6l1.5 2h-15L6 17zM10 21h4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
               {unread > 0 && <b className="dot">{unread > 9 ? '9+' : unread}</b>}
             </NavLink>
-            <NavLink to="/panier" className="mhide">Panier ({cart.length})</NavLink>
+            {purchasesOn(db) && <NavLink to="/panier" className="mhide">Panier ({cart.length})</NavLink>}
             {user ? (
               <button className="linkbtn" type="button" onClick={() => { signOut(); nav('/') }}>Sortir</button>
             ) : (
@@ -89,7 +89,7 @@ export default function Layout() {
           ['/explorer', 'Explorer', 'M11 4a7 7 0 100 14 7 7 0 000-14zm5 12l4.5 4.5'],
           [user ? '/bibliotheque' : '/compte', 'Ma musique', 'M9 18V6l10-2v12M9 18a3 3 0 11-6 0 3 3 0 016 0zm10-2a3 3 0 11-6 0 3 3 0 016 0z'],
           ['/panier', `Panier${cart.length ? ` (${cart.length})` : ''}`, 'M3 4h2.5l2 11h10l2-8H7M9 20h.01M17 20h.01'],
-        ].map(([to, label, d, end]) => (
+        ].filter(([to]) => to !== '/panier' || purchasesOn(db)).map(([to, label, d, end]) => (
           <NavLink key={label} to={to} end={!!end}>
             <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d={d} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
             <span>{label}</span>
