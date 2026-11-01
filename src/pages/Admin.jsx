@@ -266,10 +266,20 @@ function AnnounceForm({ admin }) {
   )
 }
 
+import AdminOverview from './AdminOverview'
+
+function exportSales(db) {
+  const q = (x) => '"' + String(x).replace(/"/g, '""') + '"'
+  const rows = [['Date', 'Titre ou album', 'Artiste', 'Montant FCFA', 'Commission %', 'Moyen']]
+  db.purchases.forEach((p) => rows.push([new Date(p.at).toLocaleString('fr-FR'), (p.itemType === 'album' ? db.albums : db.tracks).find((x) => x.id === p.itemId)?.title || '', db.artists.find((a) => a.id === p.artistId)?.name || '', p.amount, p.commissionPct, p.method]))
+  const blob = new Blob(['\ufeff' + rows.map((r) => r.map(q).join(';')).join('\n')], { type: 'text/csv;charset=utf-8' })
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'ventes-vibestore.csv'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000)
+}
+
 export default function Admin() {
   const db = useDb()
   const user = useUser()
-  const [tab, setTab] = useState('artistes')
+  const [tab, setTab] = useState('apercu')
   const [s, setS] = useState(null)
   if (!user) return <Navigate to="/compte" replace />
   if (user.role !== 'admin') return <Empty>Espace réservé à l’équipe VibeStore.</Empty>
@@ -286,10 +296,12 @@ export default function Admin() {
       <h1 className="h1">Administration</h1>
       <p className="muted">Les comptes artistes et leurs titres sont ajoutés uniquement ici, par l’équipe VibeStore. Les artistes ne s’inscrivent pas seuls et ne publient pas eux-mêmes.</p>
       <div className="tabs" role="tablist">
-        {[['artistes', 'Artistes et titres'], ['annonces', 'Annonces'], ['ventes', 'Ventes'], ['reglages', 'Réglages']].map(([k, l]) => (
+        {[['apercu', 'Aperçu'], ['artistes', 'Artistes et titres'], ['annonces', 'Annonces'], ['ventes', 'Ventes'], ['reglages', 'Réglages']].map(([k, l]) => (
           <button key={k} role="tab" aria-selected={tab === k} className={'tab' + (tab === k ? ' on' : '')} type="button" onClick={() => setTab(k)}>{l}</button>
         ))}
       </div>
+
+      {tab === 'apercu' && <AdminOverview db={db} go={setTab} />}
 
       {tab === 'artistes' && (
         <>
@@ -308,6 +320,7 @@ export default function Admin() {
             <div className="stat"><span>Chiffre d’affaires</span><b>{fcfa(gross)}</b></div>
             <div className="stat hi"><span>Commission VibeStore</span><b>{fcfa(fee)}</b></div>
           </div>
+          {db.purchases.length > 0 && <button className="btn small ghost" type="button" onClick={() => exportSales(db)}>Exporter en CSV</button>}
           {db.purchases.length ? (
             <ul className="tracks">{[...db.purchases].reverse().map((p) => (
               <li key={p.id} className="track simple">

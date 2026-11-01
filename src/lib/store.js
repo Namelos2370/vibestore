@@ -49,7 +49,7 @@ function seed() {
 
 function emptyDb() {
   return {
-    users: [], artists: [], albums: [], tracks: [], purchases: [], notifications: [], likes: [], likeCounts: {},
+    users: [], artists: [], albums: [], tracks: [], purchases: [], notifications: [], likes: [], likeCounts: {}, members: [],
     settings: {
       commissionPct: 20, promoCommissionPct: 15, promoMonths: 6, launchAt: Date.now(), minPrice: MIN_PRICE,
       paymentMethods: [
@@ -346,6 +346,10 @@ export function refresh() {
       next.likes = (lk.data || []).map((r) => ({ userId: session.user.id, trackId: r.track_id }))
       next.likeCounts = Object.fromEntries((lc.data || []).map((r) => [r.track_id, Number(r.n)]))
       me = pr.data ? mapProfile(pr.data, session.user.email) : null
+      if (me && me.role === 'admin') {
+        const mb = await supabase.from('profiles').select('id,role,created_at').order('created_at', { ascending: false }).limit(5000)
+        next.members = (mb.data || []).map((m) => ({ id: m.id, role: m.role, createdAt: ms(m.created_at) }))
+      }
       next.users = me ? [me] : []
       db = next
     } catch (e) {
