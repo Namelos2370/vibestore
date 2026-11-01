@@ -43,7 +43,7 @@ export default function Discover() {
     try { await toggleLike(t.id); if (!user && !was) setToast('Crée un compte pour retrouver tes coups de cœur dans Ma musique.') } catch (e) { setToast(e.message) }
   }
   const [toast, setToast] = useState('')
-  const { tracks } = catalog(db)
+  const { sounds: tracks } = catalog(db)
   const items = useMemo(() => [...tracks].sort((a, b) => b.plays - a.plays || a.title.localeCompare(b.title)), [tracks.length]) // eslint-disable-line
   const feedRef = useRef(null)
   useEffect(() => { document.body.classList.add('immersive'); return () => document.body.classList.remove('immersive') }, [])

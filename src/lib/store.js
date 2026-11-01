@@ -158,7 +158,12 @@ export function catalog(d) {
   const tracks = d.tracks
     .filter((t) => t.status === 'approved' && albumById[t.albumId])
     .map((t) => ({ ...t, album: albumById[t.albumId], artist: artistById[t.artistId] }))
-  return { albums, tracks, artists: d.artists.filter(approvedArtist) }
+  const clips = tracks.filter(isClip)
+  const sounds = tracks.filter((t) => !isClip(t))
+  // une sortie est « de sons » si elle contient au moins un son, « de clips » si tous ses titres sont des clips
+  const soundAlbums = albums.filter((al) => sounds.some((t) => t.albumId === al.id) || !tracks.some((t) => t.albumId === al.id))
+  const clipAlbums = albums.filter((al) => clips.some((t) => t.albumId === al.id))
+  return { albums, tracks, sounds, clips, soundAlbums, clipAlbums, artists: d.artists.filter(approvedArtist) }
 }
 
 /* ---------- Droits d'écoute ---------- */
@@ -252,8 +257,8 @@ export function createArtist(admin, { name, contact, genre, bio }) {
 }
 
 /** Ajoute une sortie (album ou single) et ses titres pour un artiste. Publiée tout de suite, sans validation. */
-export function createRelease(admin, { artistId, title, kind, albumPrice, color, tracks, cover, videoUrl, videoFile }) {
-  if (REMOTE) return remoteCreateRelease(admin, { artistId, title, kind, albumPrice, color, tracks, cover, videoUrl, videoFile })
+export function createRelease(admin, { artistId, title, kind, albumPrice, color, tracks, cover, videoUrl, videoFile, media = 'sound' }) {
+  if (REMOTE) return remoteCreateRelease(admin, { artistId, title, kind, albumPrice, color, tracks, cover, videoUrl, videoFile, media })
   requireAdmin(admin)
   const artist = db.artists.find((a) => a.id === artistId)
   if (!artist) throw new Error('Choisis un artiste.')
@@ -271,7 +276,7 @@ export function createRelease(admin, { artistId, title, kind, albumPrice, color,
     db.tracks.push({
       id: uid('t-'), albumId: alId, artistId: artist.id, title: t.title.trim(),
       duration: Number(t.duration) || 180, price: Number(t.price), seed: Math.floor(Math.random() * 90) + 10 + i,
-      audioName: t.audioName || '', lyrics: t.lyrics || '', status: 'approved', plays: 0,
+      audioName: t.audioName || (media === 'clip' ? 'clip.mp4' : ''), media: media === 'clip' ? 'clip' : 'sound', lyrics: media === 'clip' ? '' : t.lyrics || '', status: 'approved', plays: 0,
     })
   )
   addNotification({ title: `Nouvelle sortie : ${title.trim()}`, body: artist.name, url: `/sortie/${alId}` })
@@ -295,7 +300,12 @@ export function togglePayment(id) {
 }
 
 /** Le fichier du titre est-il un clip vidéo (au lieu d'un MP3) ? */
-export const isClip = (t) => !!t && /\.(mp4|m4v|mov|webm)$/i.test(t.audioPath || t.audioName || '')
+export const isClip = (t) => !!t && (t.media === 'clip' || (t.media !== 'sound' && /\.(mp4|m4v|mov|webm)$/i.test(t.audioPath || t.audioName || '')))
+/** Média d'un achat : 'clip' si le titre (ou tout l'album) est un clip, sinon 'sound'. */
+export function purchaseMedia(d, p) {
+  if (p.itemType === 'album') { const ts = d.tracks.filter((t) => t.albumId === p.itemId); return ts.length && ts.every(isClip) ? 'clip' : 'sound' }
+  return isClip(d.tracks.find((t) => t.id === p.itemId)) ? 'clip' : 'sound'
+}
 export const fcfa = (n) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' FCFA'
 export const mmss = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`
 
@@ -315,7 +325,7 @@ const must = ({ data, error }) => { if (error) throw new Error(frError(error.mes
 
 const mapArtist = (a) => ({ photoPath: a.photo_path || '', city: a.city || '', links: a.links || {}, verified: !!a.verified, id: a.id, userId: a.user_id, name: a.name, genre: a.genre, bio: a.bio, status: a.status, account: a.account, createdAt: ms(a.created_at) })
 const mapAlbum = (r) => ({ coverPath: r.cover_path, videoUrl: r.video_url || '', id: r.id, artistId: r.artist_id, title: r.title, kind: r.kind, color: r.color, price: r.price, status: r.status, createdAt: ms(r.created_at) })
-const mapTrack = (t) => ({ lyrics: t.lyrics || '', id: t.id, albumId: t.release_id, artistId: t.artist_id, title: t.title, duration: t.duration, price: t.price, seed: t.seed, audioName: t.audio_name, audioPath: t.audio_path, previewPath: t.preview_path, status: t.status, plays: t.plays })
+const mapTrack = (t) => ({ media: t.media === 'clip' ? 'clip' : 'sound', lyrics: t.lyrics || '', id: t.id, albumId: t.release_id, artistId: t.artist_id, title: t.title, duration: t.duration, price: t.price, seed: t.seed, audioName: t.audio_name, audioPath: t.audio_path, previewPath: t.preview_path, status: t.status, plays: t.plays })
 const mapPurchase = (p) => ({ id: p.id, userId: p.user_id, itemType: p.item_type === 'release' ? 'album' : 'track', itemId: p.item_id, artistId: p.artist_id, amount: p.amount, commissionPct: Number(p.commission_pct), method: p.method, at: ms(p.created_at) })
 const mapSettings = (s) => ({
   commissionPct: Number(s.commission_pct), promoCommissionPct: Number(s.promo_commission_pct), promoMonths: s.promo_months,
@@ -445,7 +455,7 @@ async function remoteCreateArtist(admin, { name, contact, genre, bio }) {
   await refresh()
   return { artist: mapArtist(row), email, tempPassword: null }
 }
-async function remoteCreateRelease(admin, { artistId, title, kind, albumPrice, color, tracks, cover, videoUrl, videoFile }) {
+async function remoteCreateRelease(admin, { artistId, title, kind, albumPrice, color, tracks, cover, videoUrl, videoFile, media = 'sound' }) {
   requireAdmin(admin)
   if (!db.artists.some((a) => a.id === artistId)) throw new Error('Choisis un artiste.')
   if (!title.trim()) throw new Error('Donne un titre à la sortie.')
@@ -456,11 +466,19 @@ async function remoteCreateRelease(admin, { artistId, title, kind, albumPrice, c
   if (kind === 'album' && !(Number(albumPrice) >= min)) throw new Error(`Le prix minimum est de ${min} FCFA pour l’album.`)
   const final = kind === 'single' ? list.slice(0, 1) : list
   const price = kind === 'album' ? Number(albumPrice) : Number(final[0].price)
+  for (const t of final) {
+    if (media === 'clip' && !t.file) throw new Error(`Ajoute le fichier vidéo (MP4) du clip « ${t.title.trim()} ».`)
+    if (t.file) {
+      const vid = /^video\//.test(t.file.type) || /\.(mp4|m4v|mov|webm)$/i.test(t.file.name)
+      if (media === 'clip' && !vid) throw new Error(`« ${t.file.name} » n’est pas une vidéo. Les clips demandent un fichier MP4.`)
+      if (media !== 'clip' && vid) throw new Error(`« ${t.file.name} » est une vidéo : publie-la dans l’espace Clips.`)
+    }
+  }
   // 1) Fichiers audio : analyse (durée + extrait de 30 s) puis envoi, avant de créer la sortie.
   const prepared = []
   for (const t of final) {
     const id = crypto.randomUUID()
-    const row = { id, title: t.title.trim(), price: Number(t.price), duration: Number(t.duration) || 180, audio_name: t.audioName || '', lyrics: t.lyrics || '', audio_path: null, preview_path: null }
+    const row = { id, media: media === 'clip' ? 'clip' : 'sound', title: t.title.trim(), price: Number(t.price), duration: Number(t.duration) || 180, audio_name: t.audioName || '', lyrics: media === 'clip' ? '' : t.lyrics || '', audio_path: null, preview_path: null }
     if (t.file) {
       const { duration, preview } = await analyseAudio(t.file)
       const ext = (t.file.name.split('.').pop() || 'mp3').toLowerCase().replace(/[^a-z0-9]/g, '') || 'mp3'

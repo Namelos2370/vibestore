@@ -1,8 +1,8 @@
 import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { useDb, useUser, catalog, owns, fcfa, myLikes } from '../lib/store'
-import { trackAudioUrl, isClip } from '../lib/store'
+import { trackAudioUrl } from '../lib/store'
 import { useState } from 'react'
-import { AlbumCard, TrackRow, Empty } from '../components/ui'
+import { AlbumCard, TrackRow, Empty, ClipCard } from '../components/ui'
 
 export default function Library() {
   const db = useDb()
@@ -10,8 +10,10 @@ export default function Library() {
   const [sp] = useSearchParams()
   const [clip, setClip] = useState(null)
     if (!user) return <Navigate to="/compte" replace />
-  const { albums, tracks } = catalog(db)
+  const { soundAlbums: albums, tracks: allTracks, clips: allClips } = catalog(db)
+  const tracks = allTracks.filter((t) => !allClips.includes(t))
   const myTracks = tracks.filter((t) => owns(db, user, { type: 'track', id: t.id }))
+  const myClips = allClips.filter((t) => owns(db, user, { type: 'track', id: t.id }))
   const favs = myLikes(db, user)
   const favTracks = favs.map((id) => tracks.find((t) => t.id === id)).filter(Boolean)
   const myAlbums = albums.filter((a) => owns(db, user, { type: 'album', id: a.id }))
@@ -34,19 +36,34 @@ export default function Library() {
         {myAlbums.length ? <div className="grid">{myAlbums.map((al) => <AlbumCard key={al.id} al={al} />)}</div> : <Empty>Aucun album pour l’instant.</Empty>}
       </section>
       <section>
-        <h2>Titres achetés</h2>
+        <h2>Sons achetés</h2>
         {myTracks.length ? (
           <ul className="tracks">
             {myTracks.map((t) => (
               <div key={t.id} className="withdl">
                 <TrackRow t={t} />
-                {isClip(t) && <button className="btn small buy" type="button" onClick={async () => { try { setClip({ title: t.title, url: await trackAudioUrl(t, 'full') }) } catch (e) { window.alert(e.message) } }}>Regarder le clip</button>}
                 <button className="btn small ghost" type="button" onClick={async () => { try { const u = await trackAudioUrl(t, 'full', { download: true }); const a = document.createElement('a'); a.href = u; a.download = `${t.artist.name} - ${t.title}`; document.body.appendChild(a); a.click(); a.remove() } catch (e) { window.alert(e.message) } }}>Télécharger</button>
               </div>
             ))}
           </ul>
         ) : <Empty>Tu n’as pas encore acheté de titre. <Link to="/explorer">Explorer le catalogue</Link></Empty>}
         <p className="muted small">Les titres sans fichier audio envoyé jouent un son de test.</p>
+      </section>
+      <section>
+        <h2>Clips achetés</h2>
+        {myClips.length ? (
+          <div className="clipgrid">
+            {myClips.map((t) => (
+              <div key={t.id}>
+                <ClipCard t={t} />
+                <div className="row">
+                  <button className="btn small buy" type="button" onClick={async () => { try { setClip({ title: t.title, url: await trackAudioUrl(t, 'full') }) } catch (e) { window.alert(e.message) } }}>Regarder le clip</button>
+                  <button className="btn small ghost" type="button" onClick={async () => { try { const u = await trackAudioUrl(t, 'full', { download: true }); const a = document.createElement('a'); a.href = u; a.download = `${t.artist.name} - ${t.title}`; document.body.appendChild(a); a.click(); a.remove() } catch (e) { window.alert(e.message) } }}>Télécharger</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : <Empty>Tu n’as pas encore acheté de clip. <Link to="/clips">Voir les clips</Link></Empty>}
       </section>
       <section>
         <h2>Historique des achats</h2>

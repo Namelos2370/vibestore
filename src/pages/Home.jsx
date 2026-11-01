@@ -1,13 +1,13 @@
 import { Link } from 'react-router-dom'
 import { useDb, useUser, catalog, fcfa, trialDaysLeft, MIN_PRICE } from '../lib/store'
-import { AlbumCard, TrackRow, Empty } from '../components/ui'
+import { AlbumCard, TrackRow, Empty, ClipCard } from '../components/ui'
 import { PoweredBy, PartnerBand } from '../components/BlueEnergy'
 import Dashboard from './Dashboard'
 
 export default function Home() {
   const db = useDb()
   const user = useUser()
-  const { albums, tracks } = catalog(db)
+  const { soundAlbums: albums, sounds: tracks, clips } = catalog(db)
   if (user) return <Dashboard user={user} />
   const trending = [...tracks].sort((a, b) => b.plays - a.plays).slice(0, 5)
   const news = [...albums].sort((a, b) => b.createdAt - a.createdAt).slice(0, 6)
@@ -20,7 +20,8 @@ export default function Home() {
           <h1>La musique d’ici, <em>écoutée et achetée</em> directement.</h1>
           <p className="lead">30 secondes gratuites sur chaque titre pendant 1 mois, puis tu achètes ce que tu aimes à partir de {fcfa(MIN_PRICE)}. Les artistes gardent l’essentiel.</p>
           <div className="row">
-            <Link className="btn buy" to="/explorer">Explorer le catalogue</Link>
+            <Link className="btn buy" to="/explorer">Écouter les sons</Link>
+            <Link className="btn ghost" to="/clips">Voir les clips</Link>
             <Link className="btn ghost" to="/compte">Créer un compte</Link>
           </div>
           <PoweredBy />
@@ -29,9 +30,17 @@ export default function Home() {
       </section>
 
       <section>
-        <h2>Tendances</h2>
+        <h2>Sons en tendance</h2>
         {trending.length ? <ul className="tracks">{trending.map((t) => <TrackRow key={t.id} t={t} />)}</ul> : <Empty>Les premiers titres arrivent bientôt.</Empty>}
       </section>
+
+      {clips.length > 0 && (
+        <section>
+          <h2>Clips</h2>
+          <div className="clipgrid">{[...clips].sort((a, b) => (b.plays || 0) - (a.plays || 0)).slice(0, 3).map((t) => <ClipCard key={t.id} t={t} />)}</div>
+          <p className="muted small"><Link to="/clips">Tous les clips</Link></p>
+        </section>
+      )}
 
       <section>
         <h2>Nouveautés</h2>

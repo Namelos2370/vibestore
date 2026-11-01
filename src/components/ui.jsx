@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link, NavLink } from 'react-router-dom'
 import { useApp } from '../lib/AppContext'
 import { useDb, useUser, owns, fcfa, mmss, coverUrl, purchasesOn, isClip } from '../lib/store'
 
@@ -83,5 +83,35 @@ export function Clip({ url }) {
         <video src={url} controls playsInline preload="metadata" />
       )}
     </div>
+  )
+}
+
+/** Bascule claire entre l'espace des sons et celui des clips. */
+export function MediaSwitch() {
+  return (
+    <div className="mediaswitch" role="tablist" aria-label="Type de contenu">
+      <NavLink to="/explorer" role="tab">🎵 Sons</NavLink>
+      <NavLink to="/clips" role="tab">🎬 Clips</NavLink>
+    </div>
+  )
+}
+
+/** Carte d'un clip : affiche de la sortie, extrait de 30 s à l'écoute, achat. */
+export function ClipCard({ t }) {
+  const { track, playing, play } = useApp()
+  const on = track && track.id === t.id
+  return (
+    <article className={'clipcard' + (on ? ' on' : '')}>
+      <button className="clipart" type="button" onClick={() => play(t)} aria-label={(on && playing ? 'Pause ' : 'Écouter l’extrait de ') + t.title}>
+        <Cover album={t.album} />
+        <span className="clipplay">{on && playing ? '❚❚' : '▶'}</span>
+        <span className="cliptag">🎬 Clip · {mmss(t.duration)}</span>
+      </button>
+      <div className="clipbody">
+        <b>{t.title}</b>
+        <Link to={`/artiste/${t.artist.id}`}>{t.artist.name}</Link>
+        <AddButton type="track" id={t.id} price={t.price} />
+      </div>
+    </article>
   )
 }

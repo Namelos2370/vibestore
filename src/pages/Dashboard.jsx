@@ -1,21 +1,23 @@
 import { Link } from 'react-router-dom'
 import { useDb, catalog, fcfa, trialDaysLeft, myLikes, myArtist, likeCount, owns } from '../lib/store'
 import { PartnerBand } from '../components/BlueEnergy'
-import { AlbumCard, TrackRow, Empty } from '../components/ui'
+import { AlbumCard, TrackRow, Empty, ClipCard } from '../components/ui'
 
 // Accueil des personnes connectées (la page publique reste pour les visiteurs).
 export default function Dashboard({ user }) {
   const db = useDb()
-  const { albums, tracks } = catalog(db)
+  const { soundAlbums: albums, sounds: tracks, clips, tracks: allTracks } = catalog(db)
   const first = (user.name || '').trim().split(/\s+/)[0] || 'toi'
   const news = [...albums].sort((a, b) => b.createdAt - a.createdAt).slice(0, 6)
   const trending = [...tracks].sort((a, b) => b.plays - a.plays).slice(0, 5)
-  const liked = myLikes(db, user).map((id) => tracks.find((t) => t.id === id)).filter(Boolean).slice(0, 4)
+  const liked = myLikes(db, user).map((id) => allTracks.find((t) => t.id === id)).filter(Boolean).slice(0, 4)
   const mine = tracks.filter((t) => owns(db, user, { type: 'track', id: t.id })).slice(0, 4)
+  const myClips = clips.filter((t) => owns(db, user, { type: 'track', id: t.id })).slice(0, 3)
   const notifs = db.notifications.slice(0, 3)
   const days = trialDaysLeft(user)
   const artist = user.role === 'artist' ? myArtist(db, user) : null
-  const artistTracks = artist ? tracks.filter((t) => t.artistId === artist.id) : []
+  const artistTracks = artist ? allTracks.filter((t) => t.artistId === artist.id) : []
+  const artistClips = artistTracks.filter((t) => clips.includes(t)).length
   const artistLikes = artistTracks.reduce((s, t) => s + likeCount(db, t.id), 0)
   const artistPlays = artistTracks.reduce((s, t) => s + (t.plays || 0), 0)
 
@@ -25,6 +27,7 @@ export default function Dashboard({ user }) {
       <h1 className="h1">Salut {first} 👋</h1>
       <div className="row">
         <Link className="btn buy" to="/decouvrir">Découvrir</Link>
+        <Link className="btn ghost" to="/clips">Clips</Link>
         {user.role === 'artist' && <Link className="btn ghost" to="/studio">Mon studio</Link>}
         {user.role === 'admin' && <Link className="btn ghost" to="/admin">Tableau de bord</Link>}
         {user.role === 'listener' && days > 0 && <span className="badge">Essai gratuit : {days} jour(s) restant(s)</span>}
@@ -35,7 +38,8 @@ export default function Dashboard({ user }) {
         <div className="stats">
           <div className="stat"><span>Écoutes</span><b>{artistPlays}</b></div>
           <div className="stat"><span>♥ Appréciations</span><b>{artistLikes}</b></div>
-          <div className="stat"><span>Titres en ligne</span><b>{artistTracks.length}</b></div>
+          <div className="stat"><span>Sons en ligne</span><b>{artistTracks.length - artistClips}</b></div>
+          <div className="stat"><span>Clips en ligne</span><b>{artistClips}</b></div>
         </div>
       )}
 
@@ -68,14 +72,27 @@ export default function Dashboard({ user }) {
         </section>
       )}
 
+      {myClips.length > 0 && (
+        <section>
+          <h2>Mes clips</h2>
+          <div className="clipgrid">{myClips.map((t) => <ClipCard key={t.id} t={t} />)}</div>
+        </section>
+      )}
+
       <section>
-        <h2>Nouveautés</h2>
+        <h2>Nouveautés sons</h2>
         {news.length ? <div className="grid">{news.map((al) => <AlbumCard key={al.id} al={al} />)}</div> : <Empty>Les premières sorties arrivent bientôt.</Empty>}
       </section>
 
       <section>
-        <h2>Tendances</h2>
+        <h2>Sons en tendance</h2>
         {trending.length ? <ul className="tracks">{trending.map((t) => <TrackRow key={t.id} t={t} />)}</ul> : <Empty>Les premiers titres arrivent bientôt.</Empty>}
+      </section>
+
+      <section>
+        <h2>Clips à voir</h2>
+        {clips.length ? <div className="clipgrid">{[...clips].sort((a, b) => (b.plays || 0) - (a.plays || 0)).slice(0, 3).map((t) => <ClipCard key={t.id} t={t} />)}</div> : <Empty>Les premiers clips arrivent bientôt.</Empty>}
+        {clips.length > 0 && <p className="muted small"><Link to="/clips">Tous les clips</Link></p>}
       </section>
       <PartnerBand />
     </>

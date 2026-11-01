@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useDb, catalog, likeCount } from '../lib/store'
-import { AlbumCard, TrackRow, Empty } from '../components/ui'
+import { AlbumCard, TrackRow, Empty, MediaSwitch } from '../components/ui'
 
 export default function Explore() {
   const db = useDb()
-  const { albums, tracks, artists } = catalog(db)
+  const { soundAlbums: albums, sounds: tracks, artists } = catalog(db)
   const [q, setQ] = useState('')
   const s = q.trim().toLowerCase()
   const score = (t) => (t.plays || 0) + 3 * likeCount(db, t.id) // popularité : écoutes + ♥ (pondérés)
@@ -27,7 +27,8 @@ export default function Explore() {
 
   return (
     <>
-      <h1 className="h1">Explorer</h1>
+      <h1 className="h1">Sons</h1>
+      <MediaSwitch />
       <label className="field">
         <span>Rechercher un titre, un album ou un artiste</span>
         <input id="search" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Ex. Bikutsi, Nadège…" />

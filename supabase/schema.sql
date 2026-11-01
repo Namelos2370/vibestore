@@ -530,3 +530,10 @@ end $$;
 
 revoke execute on function public.create_pending_order(uuid, jsonb, text, text) from public, anon, authenticated;
 revoke execute on function public.finalize_order(text, boolean) from public, anon, authenticated;
+
+-- ============================================================
+-- v1.1 : sons et clips separes
+-- ============================================================
+alter table public.tracks add column if not exists media text not null default 'sound' check (media in ('sound','clip'));
+-- les titres deja envoyes sous forme de video deviennent des clips
+update public.tracks set media = 'clip' where media = 'sound' and audio_path ~* '\.(mp4|m4v|mov|webm)$';

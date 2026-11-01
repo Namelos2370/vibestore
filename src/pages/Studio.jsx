@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
-import { useDb, useUser, myArtist, fcfa, likeCount, artistBalance, artistCommission, photoUrl, sendRequest, REQUEST_KINDS, PAYOUT_METHODS, DISTRIBUTION } from '../lib/store'
+import { useDb, useUser, myArtist, fcfa, likeCount, artistBalance, artistCommission, photoUrl, sendRequest, REQUEST_KINDS, PAYOUT_METHODS, DISTRIBUTION, isClip } from '../lib/store'
 import { Bars } from './AdminOverview'
 import { Empty } from '../components/ui'
 
@@ -101,17 +101,31 @@ export default function Studio() {
       </section>
 
       <section>
-        <h2>Mes titres</h2>
-        {tracks.length ? (
+        <h2>Mes sons</h2>
+        {tracks.filter((t) => !isClip(t)).length ? (
           <ul className="tracks">
-            {tracks.map((t) => (
+            {tracks.filter((t) => !isClip(t)).map((t) => (
               <li key={t.id} className="track simple">
                 <div className="tmeta"><b>{t.title}</b><span>{fcfa(t.price)} · {t.plays || 0} écoutes · ♥ {likeCount(db, t.id)} · {salesOf(t)} ventes</span></div>
                 <span className="badge ok">En ligne</span>
               </li>
             ))}
           </ul>
-        ) : <Empty>Aucun titre en ligne pour l’instant. L’équipe VibeStore ajoutera tes sorties.</Empty>}
+        ) : <Empty>Aucun son en ligne pour l’instant. L’équipe VibeStore ajoutera tes sorties.</Empty>}
+      </section>
+
+      <section>
+        <h2>Mes clips</h2>
+        {tracks.filter(isClip).length ? (
+          <ul className="tracks">
+            {tracks.filter(isClip).map((t) => (
+              <li key={t.id} className="track simple">
+                <div className="tmeta"><b>{t.title}<span className="badge clip">🎬 Clip</span></b><span>{fcfa(t.price)} · {t.plays || 0} écoutes · ♥ {likeCount(db, t.id)} · {salesOf(t)} ventes</span></div>
+                <span className="badge ok">En ligne</span>
+              </li>
+            ))}
+          </ul>
+        ) : <Empty>Aucun clip en ligne pour l’instant. Envoie ton clip à l’équipe VibeStore avec une demande « Nouveau titre ».</Empty>}
       </section>
 
       <section>

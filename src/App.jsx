@@ -13,6 +13,7 @@ import Account from './pages/Account'
 import Studio from './pages/Studio'
 import Admin from './pages/Admin'
 import Sessions from './pages/Sessions'
+import Clips from './pages/Clips'
 import { Splash } from './components/BlueEnergy'
 
 export default function App() {
@@ -26,6 +27,7 @@ export default function App() {
             <Route path="decouvrir" element={<Discover />} />
             <Route path="notifications" element={<Notifications />} />
             <Route path="explorer" element={<Explore />} />
+            <Route path="clips" element={<Clips />} />
             <Route path="sessions" element={<Sessions />} />
             <Route path="sortie/:id" element={<Release />} />
             <Route path="artiste/:id" element={<Artist />} />

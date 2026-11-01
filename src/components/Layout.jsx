@@ -57,7 +57,8 @@ export default function Layout() {
           <nav aria-label="Navigation principale">
             <NavLink to="/" end className="mhide">Accueil</NavLink>
             <NavLink to="/decouvrir" className="mhide">Découvrir</NavLink>
-            <NavLink to="/explorer" className="mhide">Explorer</NavLink>
+            <NavLink to="/explorer" className="mhide">Sons</NavLink>
+            <NavLink to="/clips" className="mhide">Clips</NavLink>
             <NavLink to="/sessions" className="mhide">Sessions</NavLink>
             {user && <NavLink to="/bibliotheque" className="mhide">Ma musique</NavLink>}
             {user && user.role === 'artist' && <NavLink to="/studio">Studio</NavLink>}
@@ -86,8 +87,9 @@ export default function Layout() {
         {[
           ['/', 'Accueil', 'M4 11l8-7 8 7v9h-5v-6H9v6H4z', true],
           ['/decouvrir', 'Découvrir', 'M5 4h14v16H5zM9 9l6 3-6 3z'],
-          ['/explorer', 'Explorer', 'M11 4a7 7 0 100 14 7 7 0 000-14zm5 12l4.5 4.5'],
-          [user ? '/bibliotheque' : '/compte', 'Ma musique', 'M9 18V6l10-2v12M9 18a3 3 0 11-6 0 3 3 0 016 0zm10-2a3 3 0 11-6 0 3 3 0 016 0z'],
+          ['/explorer', 'Sons', 'M9 18V6l10-2v12M9 18a3 3 0 11-6 0 3 3 0 016 0zm10-2a3 3 0 11-6 0 3 3 0 016 0z'],
+          ['/clips', 'Clips', 'M4 6h12a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V8a2 2 0 012-2zm16 3l2-1v8l-2-1'],
+          [user ? '/bibliotheque' : '/compte', 'Ma musique', 'M5 4h14v16H5zM9 9h6M9 13h6'],
           ['/panier', `Panier${cart.length ? ` (${cart.length})` : ''}`, 'M3 4h2.5l2 11h10l2-8H7M9 20h.01M17 20h.01'],
         ].filter(([to]) => to !== '/panier' || purchasesOn(db)).map(([to, label, d, end]) => (
           <NavLink key={label} to={to} end={!!end}>
