@@ -3,6 +3,7 @@ import { Link, Navigate } from 'react-router-dom'
 import { useDb, useUser, myArtist, fcfa, likeCount, artistBalance, artistCommission, photoUrl, sendRequest, REQUEST_KINDS, PAYOUT_METHODS, DISTRIBUTION, isClip } from '../lib/store'
 import { Bars } from './AdminOverview'
 import { Empty } from '../components/ui'
+import { Icon, Verified } from '../components/Icon'
 
 const DAY = 86400000
 const dt = (t) => new Date(t).toLocaleDateString('fr-FR')
@@ -63,7 +64,7 @@ export default function Studio() {
       <span className="eyebrow">Espace artiste</span>
       <div className="artisthead">
         {photo && <img className="avatar" src={photo} alt="" width="72" height="72" />}
-        <h1 className="h1">Studio de {artist.name}{artist.verified && <span className="vbadge" title="Artiste vérifié">✔</span>}</h1>
+        <h1 className="h1">Studio de {artist.name}{artist.verified && <Verified />}</h1>
       </div>
 
       <div className="infobox">

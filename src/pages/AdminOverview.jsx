@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { catalog, fcfa, likeCount, currentCommission, livePayments, isClip, purchaseMedia } from '../lib/store'
+import { Icon, Verified } from '../components/Icon'
 
 const DAY = 86400000
 const PERIODS = [[7, '7 jours'], [30, '30 jours'], [0, 'Tout']]
@@ -22,7 +23,7 @@ const pct = (cur, prev) => (prev > 0 ? Math.round(((cur - prev) / prev) * 100) :
 function Delta({ cur, prev }) {
   const d = pct(cur, prev)
   if (d === null) return <small className="delta flat">{prev === 0 && cur > 0 ? 'nouveau' : '—'}</small>
-  return <small className={'delta ' + (d > 0 ? 'up' : d < 0 ? 'down' : 'flat')}>{d > 0 ? '▲ +' : d < 0 ? '▼ ' : '= '}{d}%</small>
+  return <small className={'delta ' + (d > 0 ? 'up' : d < 0 ? 'down' : 'flat')}>{d > 0 ? <Icon name="arrowUp" size={12} /> : d < 0 ? <Icon name="arrowDown" size={12} /> : null}{d > 0 ? '+' : ''}{d} %</small>
 }
 function Kpi({ label, value, cur, prev, hi }) {
   return (
@@ -174,7 +175,7 @@ export default function AdminOverview({ db, go }) {
         </section>
         <section className="panel">
           <h2>Top titres</h2>
-          {v.trackRows.length ? <ol className="rank">{v.trackRows.map((r) => <li key={r.t.id}><b>{isClip(r.t) ? '' : ''}{r.t.title}</b><span>{artistOf(r.t.artistId)} · {r.t.plays || 0} écoutes · {r.likes} j’aime · {r.sales} vente(s)</span></li>)}</ol> : <p className="muted">Pas encore de titre.</p>}
+          {v.trackRows.length ? <ol className="rank">{v.trackRows.map((r) => <li key={r.t.id}><b>{r.t.title}</b><span>{artistOf(r.t.artistId)} · {r.t.plays || 0} écoutes · {r.likes} j’aime · {r.sales} vente(s)</span></li>)}</ol> : <p className="muted">Pas encore de titre.</p>}
         </section>
       </div>
     </>

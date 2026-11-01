@@ -4,6 +4,7 @@ import { useApp } from '../lib/AppContext'
 import { useDb, useUser, catalog, listenRight, mmss, PREVIEW_SECONDS, myLikes, likeCount, toggleLike } from '../lib/store'
 import { AddButton, Cover, Empty, Clip } from '../components/ui'
 import { parseLyrics, currentLine } from '../lib/lyrics'
+import { Icon, Verified } from '../components/Icon'
 
 function Lyrics({ t, on, pos, onClose }) {
   const { lines, timed } = useMemo(() => parseLyrics(t.lyrics), [t.lyrics])
@@ -17,7 +18,7 @@ function Lyrics({ t, on, pos, onClose }) {
   }, [cur])
   return (
     <div className="lyrics" role="dialog" aria-label={`Paroles de ${t.title}`}>
-      <header><b>{t.title}</b><button className="iconbtn" type="button" onClick={onClose} aria-label="Fermer les paroles">✕</button></header>
+      <header><b>{t.title}</b><button className="iconbtn" type="button" onClick={onClose} aria-label="Fermer les paroles"><Icon name="close" size={18} /></button></header>
       <div className="lines" ref={ref}>{lines.map((l, i) => <p key={i} className={'ln' + (i === cur ? ' now' : '')}>{l.text}</p>)}</div>
     </div>
   )
@@ -104,14 +105,14 @@ export default function Discover() {
             <div className={'slidecover' + (on && playing ? ' live' : '')}><Cover album={t.album} /></div>
             <div className="slidemeta">
               <h2>{t.title}</h2>
-              <p><Link to={`/artiste/${t.artist.id}`}>{t.artist.name}</Link>{t.artist.verified && <span className="vbadge">✔</span>} · <Link to={`/sortie/${t.album.id}`}>{t.album.title}</Link></p>
+              <p><Link to={`/artiste/${t.artist.id}`}>{t.artist.name}</Link>{t.artist.verified && <Verified />} · <Link to={`/sortie/${t.album.id}`}>{t.album.title}</Link></p>
               <span className="badge">{right === 'full' ? 'Écoute complète' : 'Aperçu 30 s'}</span>
               {on && playing && <span className="eq" aria-hidden="true"><i /><i /><i /><i /></span>}
             </div>
             {on && <div className="slidebar" aria-hidden="true"><i style={{ width: pct + '%' }} /><span>{mmss(pos)}</span></div>}
             <div className="slideact">
               {user ? (
-                <button className="bigplay" type="button" onClick={() => play(t)} aria-label={(on && playing ? 'Pause ' : 'Écouter ') + t.title}>{on && playing ? '❚❚' : '▶'}</button>
+                <button className="bigplay" type="button" onClick={() => play(t)} aria-label={(on && playing ? 'Pause ' : 'Écouter ') + t.title}><Icon name={on && playing ? 'pause' : 'play'} size={26} /></button>
               ) : (
                 <button className="btn buy" type="button" onClick={() => nav('/compte')}>Crée un compte pour écouter</button>
               )}
@@ -125,12 +126,12 @@ export default function Discover() {
               </div>
             )}
             <div className="slidetools">
-              {t.lyrics && <button className="iconbtn" type="button" onClick={() => openLyrics(t, on)} aria-label="Paroles">♪</button>}
-              {t.album.videoUrl && <button className="iconbtn" type="button" onClick={() => { if (on && playing) toggle(); setClip(t.id) }} aria-label="Voir le clip"></button>}
-              <button className={'iconbtn' + (favs.includes(t.id) ? ' on' : '')} type="button" onClick={() => like(t)} aria-pressed={favs.includes(t.id)} aria-label={favs.includes(t.id) ? 'Retirer des favoris' : 'Ajouter aux favoris'}>{favs.includes(t.id) ? '♥' : '♡'}<small className="cnt">{likeCount(db, t.id) || ''}</small></button>
-              <button className="iconbtn" type="button" onClick={() => share(t)} aria-label="Partager">↗</button>
+              {t.lyrics && <button className="iconbtn" type="button" onClick={() => openLyrics(t, on)} aria-label="Paroles"><Icon name="lyrics" /></button>}
+              {t.album.videoUrl && <button className="iconbtn" type="button" onClick={() => { if (on && playing) toggle(); setClip(t.id) }} aria-label="Voir le clip"><Icon name="clip" /></button>}
+              <button className={'iconbtn' + (favs.includes(t.id) ? ' on' : '')} type="button" onClick={() => like(t)} aria-pressed={favs.includes(t.id)} aria-label={favs.includes(t.id) ? 'Retirer des favoris' : 'Ajouter aux favoris'}><Icon name="heart" fill={favs.includes(t.id)} /><small className="cnt">{likeCount(db, t.id) || ''}</small></button>
+              <button className="iconbtn" type="button" onClick={() => share(t)} aria-label="Partager"><Icon name="share" /></button>
             </div>
-            {i === 0 && items.length > 1 && <span className="swipe" aria-hidden="true">Fais défiler ↑</span>}
+            {i === 0 && items.length > 1 && <span className="swipe" aria-hidden="true">Fais défiler</span>}
           </section>
         )
       })}

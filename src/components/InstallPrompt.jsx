@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Icon, Verified } from './Icon'
 
 const KEY = 'vibestore.install.dismissed'
 const standalone = () => window.matchMedia?.('(display-mode: standalone)').matches || window.navigator.standalone === true
@@ -36,11 +37,11 @@ export default function InstallPrompt() {
       <div className="itext">
         <b>Installe VibeStore sur ton écran d’accueil</b>
         {ios
-          ? <span>Touche <i className="sharei" aria-label="le bouton Partager">⬆︎</i> <b>Partager</b>, puis <b>« Sur l’écran d’accueil »</b>. Tu auras l’app et les notifications.</span>
+          ? <span>Touche <Icon name="share" size={16} className="inl" /> <b>Partager</b>, puis <b>« Sur l’écran d’accueil »</b>. Tu auras l’app et les notifications.</span>
           : <span>Ouvre-la comme une vraie app, plus vite et avec les notifications.</span>}
       </div>
       {!ios && evt && <button className="btn small buy" type="button" onClick={install}>Installer</button>}
-      <button className="iconbtn" type="button" onClick={close} aria-label="Plus tard">✕</button>
+      <button className="iconbtn" type="button" onClick={close} aria-label="Plus tard"><Icon name="close" size={18} /></button>
     </div>
   )
 }

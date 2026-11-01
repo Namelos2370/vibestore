@@ -1,6 +1,7 @@
 import { Link, NavLink } from 'react-router-dom'
 import { useApp } from '../lib/AppContext'
 import { useDb, useUser, owns, fcfa, mmss, coverUrl, purchasesOn, isClip } from '../lib/store'
+import { Icon, Verified } from './Icon'
 
 export function Cover({ album, size }) {
   const c = album?.color || '#8B5CF6'
@@ -20,7 +21,7 @@ export function AddButton({ type, id, price, compact }) {
   if (!purchasesOn(db)) return <span className="badge soon" title="Les achats ouvrent bientôt">Achat bientôt</span>
   const inCart = cart.some((x) => x.type === type && x.id === id)
   return inCart ? (
-    <button className="btn small ghost" type="button" onClick={() => removeFromCart(type, id)}>Dans le panier ✓</button>
+    <button className="btn small ghost" type="button" onClick={() => removeFromCart(type, id)}>Dans le panier</button>
   ) : (
     <button className="btn small buy" type="button" onClick={() => addToCart(type, id)}>
       {compact ? fcfa(price) : `Ajouter · ${fcfa(price)}`}
@@ -34,7 +35,7 @@ export function TrackRow({ t, showArtist = true }) {
   return (
     <li className={'track' + (on ? ' on' : '')}>
       <button className="playbtn" type="button" onClick={() => play(t)} aria-label={(on && playing ? 'Pause ' : 'Écouter ') + t.title}>
-        {on && playing ? '❚❚' : '▶'}
+        <Icon name={on && playing ? 'pause' : 'play'} size={22} />
       </button>
       <div className="tmeta">
         <b>{t.title}{isClip(t) && <span className="badge clip" title="Titre disponible en clip vidéo">Clip</span>}</b>
@@ -104,7 +105,7 @@ export function ClipCard({ t }) {
     <article className={'clipcard' + (on ? ' on' : '')}>
       <button className="clipart" type="button" onClick={() => play(t)} aria-label={(on && playing ? 'Pause ' : 'Écouter l’extrait de ') + t.title}>
         <Cover album={t.album} />
-        <span className="clipplay">{on && playing ? '❚❚' : '▶'}</span>
+        <span className="clipplay"><Icon name={on && playing ? 'pause' : 'play'} size={22} /></span>
         <span className="cliptag">Clip · {mmss(t.duration)}</span>
       </button>
       <div className="clipbody">

@@ -5,6 +5,7 @@ import { autoPush, useDb, useUser, useUnread, signOut, openRequests, purchasesOn
 import { Cover } from './ui'
 import InstallPrompt from './InstallPrompt'
 import { PoweredBy } from './BlueEnergy'
+import { Icon, Verified } from './Icon'
 
 function Player() {
   const { track, playing, pos, mode, notice, setNotice, toggle, seek, addToCart, audioDuration } = useApp()
@@ -35,7 +36,7 @@ function Player() {
           />
         </div>
         <span className="dur">{mmss(pos)}</span>
-        <button className="pp" type="button" onClick={toggle} disabled={!track} aria-label={playing ? 'Pause' : 'Lecture'}>{playing ? '❚❚' : '▶'}</button>
+        <button className="pp" type="button" onClick={toggle} disabled={!track} aria-label={playing ? 'Pause' : 'Lecture'}><Icon name={playing ? 'pause' : 'play'} size={22} /></button>
       </div>
     </div>
   )

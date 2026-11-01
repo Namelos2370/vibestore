@@ -1,6 +1,7 @@
 import { Link, useParams } from 'react-router-dom'
 import { useDb, catalog, photoUrl, likeCount, PLATFORMS } from '../lib/store'
 import { AlbumCard, TrackRow, Empty, ClipCard } from '../components/ui'
+import { Icon, Verified } from '../components/Icon'
 
 export default function Artist() {
   const { id } = useParams()
@@ -17,7 +18,7 @@ export default function Artist() {
       <span className="eyebrow">Artiste{a.city ? ` · ${a.city}` : ''}{a.genre ? ` · ${a.genre}` : ''}</span>
       <div className="artisthead">
         {photoUrl(a.photoPath) && <img className="avatar big" src={photoUrl(a.photoPath)} alt={a.name} width="96" height="96" />}
-        <h1 className="h1">{a.name}{a.verified && <span className="vbadge" title="Artiste vérifié">✔</span>}</h1>
+        <h1 className="h1">{a.name}{a.verified && <Verified />}</h1>
       </div>
       {a.bio && <p className="lead">{a.bio}</p>}
       <p className="muted small">{all.reduce((n, t) => n + (t.plays || 0), 0)} écoutes · {all.reduce((n, t) => n + likeCount(db, t.id), 0)} j’aime · {ts.length} son(s) · {cs.length} clip(s)</p>

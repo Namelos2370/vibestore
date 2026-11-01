@@ -2,13 +2,14 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useDb, catalog, likeCount } from '../lib/store'
 import { AlbumCard, TrackRow, Empty, MediaSwitch } from '../components/ui'
+import { Icon, Verified } from '../components/Icon'
 
 export default function Explore() {
   const db = useDb()
   const { soundAlbums: albums, sounds: tracks, artists } = catalog(db)
   const [q, setQ] = useState('')
   const s = q.trim().toLowerCase()
-  const score = (t) => (t.plays || 0) + 3 * likeCount(db, t.id) // popularité : écoutes + ♥ (pondérés)
+  const score = (t) => (t.plays || 0) + 3 * likeCount(db, t.id) // popularité : écoutes + j’aime (pondérés)
   const stats = useMemo(() => {
     const m = {}
     tracks.forEach((t) => { const x = m[t.artistId] || (m[t.artistId] = { plays: 0, likes: 0, score: 0 }); x.plays += t.plays || 0; x.likes += likeCount(db, t.id); x.score += score(t) })
@@ -37,7 +38,7 @@ export default function Explore() {
       <section>
         <h2>{s ? 'Artistes' : 'Top artistes'}</h2>
         {f.artists.length ? (
-          <div className="chips">{f.artists.map((a, i) => <Link key={a.id} className="chip" to={`/artiste/${a.id}`}>{i === 0 && !s && artistScore(a) > 0 ? '' : ''}{a.name}{a.verified && <span className="vbadge">✔</span>}{stats[a.id] && <small className="cs"> · {stats[a.id].plays} écoutes · {stats[a.id].likes} j’aime</small>}</Link>)}</div>
+          <div className="chips">{f.artists.map((a, i) => <Link key={a.id} className="chip" to={`/artiste/${a.id}`}>{a.name}{a.verified && <Verified />}{stats[a.id] && <small className="cs"> · {stats[a.id].plays} écoutes · {stats[a.id].likes} j’aime</small>}</Link>)}</div>
         ) : <Empty>Aucun artiste trouvé.</Empty>}
       </section>
       <section>

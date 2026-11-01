@@ -6,6 +6,7 @@ import {
 } from '../lib/store'
 import { Bars } from './AdminOverview'
 import { Empty } from '../components/ui'
+import { Icon, Verified } from '../components/Icon'
 
 const DAY = 86400000
 const methodLabel = (id) => (PAYOUT_METHODS.find(([k]) => k === id) || [0, id])[1]
@@ -59,7 +60,7 @@ export function ArtistSheet({ admin, artist: a, onClose }) {
   return (
     <section className="panel sheet">
       <div className="row wrap between">
-        <h2>Fiche de {a.name}{a.verified && <span className="vbadge" title="Artiste vérifié">✔</span>}</h2>
+        <h2>Fiche de {a.name}{a.verified && <Verified />}</h2>
         <button className="btn small ghost" type="button" onClick={onClose}>Fermer la fiche</button>
       </div>
       {err && <p className="err" role="alert">{err}</p>}
@@ -102,7 +103,7 @@ export function ArtistSheet({ admin, artist: a, onClose }) {
             <option value="approved">Actif (visible)</option><option value="rejected">Suspendu (masqué, titres conservés)</option><option value="pending">Archivé (masqué)</option>
           </select>
         </label>
-        <label className="check"><input type="checkbox" checked={f.verified} onChange={(e) => setF({ ...f, verified: e.target.checked })} /> Artiste vérifié ✔</label>
+        <label className="check"><input type="checkbox" checked={f.verified} onChange={(e) => setF({ ...f, verified: e.target.checked })} /> Artiste vérifié</label>
         <button className="btn buy" type="button" onClick={run('Profil enregistré.', async () => { await updateArtistProfile(admin, a.id, f); setF((x) => ({ ...x, photo: null })) })}>Enregistrer le profil</button>
       </div>
 

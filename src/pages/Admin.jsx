@@ -188,7 +188,7 @@ function CatalogManager({ admin, onSheet, mode = 'artists' }) {
                 </div>
               ) : (
                 <div className="row wrap mrow">
-                  <div className="tmeta grow"><b>{a.name}{a.verified && <span className="vbadge" title="Artiste vérifié">✔</span>}{hidden(a) && <span className="badge"> {a.status === 'pending' ? 'Archivé' : 'Suspendu'}</span>}{a.status === 'pending' && !hidden(a) && <span className="badge"> Archivé</span>}</b><span>{a.genre || 'Genre non précisé'} · {nSounds(a.id)} son(s) · {nClips(a.id)} clip(s) · {a.account === 'active' ? 'Compte actif' : 'Invitation en attente'}</span></div>
+                  <div className="tmeta grow"><b>{a.name}{a.verified && <Verified />}{hidden(a) && <span className="badge"> {a.status === 'pending' ? 'Archivé' : 'Suspendu'}</span>}{a.status === 'pending' && !hidden(a) && <span className="badge"> Archivé</span>}</b><span>{a.genre || 'Genre non précisé'} · {nSounds(a.id)} son(s) · {nClips(a.id)} clip(s) · {a.account === 'active' ? 'Compte actif' : 'Invitation en attente'}</span></div>
                   <button className="btn small buy" type="button" onClick={() => onSheet(a.id)}>Fiche</button>
                   {media && <button className="btn small ghost" type="button" onClick={() => setOpen({ ...open, [a.id]: !isOpen(a.id) })}>{isOpen(a.id) ? 'Replier' : 'Déplier'}</button>}
                   {!media && <button className="btn small ghost" type="button" onClick={() => setEdit({ kind: 'artist', id: a.id, f: { name: a.name, genre: a.genre, bio: a.bio } })}>Modifier</button>}
@@ -284,6 +284,7 @@ function AnnounceForm({ admin }) {
 import AdminOverview from './AdminOverview'
 import MembersTab from './AdminMembers'
 import { ArtistSheet, PayoutsTab, RequestsTab } from './AdminArtists'
+import { Icon, Verified } from '../components/Icon'
 
 function exportSales(db) {
   const q = (x) => '"' + String(x).replace(/"/g, '""') + '"'
@@ -361,7 +362,7 @@ export default function Admin() {
           {db.purchases.length ? (
             <ul className="tracks">{[...db.purchases].reverse().map((p) => (
               <li key={p.id} className="track simple">
-                <div className="tmeta"><b>{purchaseMedia(db, p) === 'clip' ? '' : ''}{(p.itemType === 'album' ? db.albums : db.tracks).find((x) => x.id === p.itemId)?.title || '—'}</b><span>{artistName(p.artistId)} · {new Date(p.at).toLocaleDateString('fr-FR')} · commission {p.commissionPct} %</span></div>
+                <div className="tmeta"><b>{(p.itemType === 'album' ? db.albums : db.tracks).find((x) => x.id === p.itemId)?.title || '—'}</b><span>{artistName(p.artistId)} · {new Date(p.at).toLocaleDateString('fr-FR')} · commission {p.commissionPct} %</span></div>
                 <span className="price">{fcfa(p.amount)}</span>
               </li>
             ))}</ul>
