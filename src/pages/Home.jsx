@@ -20,7 +20,7 @@ export default function Home() {
           <h1>La musique d’ici, <em>écoutée et achetée</em> directement.</h1>
           <p className="lead">30 secondes gratuites sur chaque titre pendant 1 mois, puis tu achètes ce que tu aimes à partir de {fcfa(MIN_PRICE)}. Les artistes gardent l’essentiel.</p>
           <div className="row">
-            <Link className="btn buy" to="/explorer">Écouter les sons</Link>
+            <Link className="btn buy" to="/decouvrir">Écouter les sons</Link>
             <Link className="btn ghost" to="/clips">Voir les clips</Link>
             <Link className="btn ghost" to="/compte">Créer un compte</Link>
           </div>
