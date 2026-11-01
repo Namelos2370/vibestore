@@ -34,12 +34,12 @@ export default function Discover() {
   const favs = myLikes(db, user)
   function openLyrics(t, on) {
     const r = listenRight(db, user, t)
-    if (r === 'signup') { setToast('Crée un compte gratuit pour lire les paroles.'); setTimeout(() => nav('/compte'), 1400); return }
     if (r === 'expired') { setToast('Ton essai est terminé : achète ce titre pour lire les paroles.'); return }
     setLyr(t.id); if (!on || !playing) play(t)
   }
   async function like(t) {
-    try { if (!(await toggleLike(t.id))) { setToast('Connecte-toi pour garder tes coups de cœur dans Ma musique.'); setTimeout(() => nav('/compte'), 1400) } } catch (e) { setToast(e.message) }
+    const was = favs.includes(t.id)
+    try { await toggleLike(t.id); if (!user && !was) setToast('Crée un compte pour retrouver tes coups de cœur dans Ma musique.') } catch (e) { setToast(e.message) }
   }
   const [toast, setToast] = useState('')
   const { tracks } = catalog(db)
@@ -63,7 +63,7 @@ export default function Discover() {
   // Lancement automatique du titre affiché (si le navigateur l'autorise après un premier geste).
   useEffect(() => {
     const t = items[active]
-    if (!t || !user) return
+    if (!t) return
     if (listenRight(db, user, t) === 'expired') return
     if (!live.current.track || live.current.track.id !== t.id) live.current.play(t)
   }, [active, items, user]) // eslint-disable-line
@@ -116,7 +116,7 @@ export default function Discover() {
               )}
               <AddButton type="track" id={t.id} price={t.price} />
             </div>
-            {lyr === t.id && listenRight(db, user, t) !== 'signup' && listenRight(db, user, t) !== 'expired' && <Lyrics t={t} on={on} pos={pos} onClose={() => setLyr(null)} />}
+            {lyr === t.id && listenRight(db, user, t) !== 'expired' && <Lyrics t={t} on={on} pos={pos} onClose={() => setLyr(null)} />}
             {clip === t.id && (
               <div className="modal">
                 <Clip url={t.album.videoUrl} />

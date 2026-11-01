@@ -119,6 +119,7 @@ export function signUp({ email, password, name }) {
   }
   db.users.push(user)
   localStorage.setItem(SESSION, user.id)
+  syncGuestLikesDemo(user.id)
   save()
   return user
 }
@@ -131,6 +132,7 @@ export function signIn(email, password) {
     if (a && a.account === 'invited') a.account = 'active' // première connexion : le compte devient actif
   }
   localStorage.setItem(SESSION, u.id)
+  syncGuestLikesDemo(u.id)
   save()
   return u
 }
@@ -164,7 +166,7 @@ export function owns(d, user, item) {
 }
 /** 'full' | 'preview' | 'signup' | 'expired' */
 export function listenRight(d, user, track) {
-  if (!user) return 'signup'
+  if (!user) return 'preview' // visiteur : extrait de 30 s sans compte
   if (owns(d, user, { type: 'track', id: track.id })) return 'full'
   if (user.role === 'artist' && d.artists.some((a) => a.userId === user.id && a.id === track.artistId)) return 'full'
   if (Date.now() <= user.trialEndsAt) return 'preview'
@@ -318,6 +320,11 @@ export function refresh() {
   refreshing = (async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession()
+      const g = session ? guestLikes() : []
+      if (g.length) {
+        await supabase.from('likes').upsert(g.map((id) => ({ user_id: session.user.id, track_id: id })), { onConflict: 'user_id,track_id', ignoreDuplicates: true })
+        setGuestLikes([])
+      }
       const [st, ar, re, tr, pu, pr, no, lk, lc] = await Promise.all([
         supabase.from('settings').select('*').eq('id', 1).maybeSingle(),
         supabase.from('artists').select('*').order('created_at'),
@@ -643,14 +650,29 @@ export async function enablePush() {
 }
 
 /* ---------- Coups de cœur (♥) ---------- */
-// Réservés aux comptes connectés : l'auditeur les retrouve dans « Ma musique », l'artiste voit le compteur sur ses titres.
-export function myLikes(d, user) { return user ? d.likes.filter((l) => l.userId === user.id).map((l) => l.trackId) : [] }
+// Sans compte, les ♥ restent sur l'appareil et rejoignent le compte à la connexion. Connecté : enregistrés dans la base.
+const GKEY = 'vibestore.guestlikes'
+const guestLikes = () => { try { return JSON.parse(localStorage.getItem(GKEY)) || [] } catch { return [] } }
+const setGuestLikes = (a) => { try { localStorage.setItem(GKEY, JSON.stringify(a)) } catch {} }
+export function myLikes(d, user) { return user ? d.likes.filter((l) => l.userId === user.id).map((l) => l.trackId) : guestLikes() }
 export function likeCount(d, trackId) { return d.likeCounts[trackId] || 0 }
+function syncGuestLikesDemo(userId) {
+  const g = guestLikes()
+  if (!g.length) return
+  g.forEach((id) => { if (!db.likes.some((l) => l.userId === userId && l.trackId === id)) { db.likes.push({ userId, trackId: id }) } })
+  setGuestLikes([])
+}
 export async function toggleLike(trackId) {
   const user = REMOTE ? me : db.users.find((u) => u.id === sessionId())
-  if (!user) return false
-  const had = db.likes.some((l) => l.userId === user.id && l.trackId === trackId)
   const n = db.likeCounts[trackId] || 0
+  if (!user) {
+    const g = guestLikes(); const had = g.includes(trackId)
+    setGuestLikes(had ? g.filter((x) => x !== trackId) : [trackId, ...g])
+    db.likeCounts = { ...db.likeCounts, [trackId]: Math.max(0, n + (had ? -1 : 1)) }
+    save()
+    return true
+  }
+  const had = db.likes.some((l) => l.userId === user.id && l.trackId === trackId)
   if (had) { db.likes = db.likes.filter((l) => !(l.userId === user.id && l.trackId === trackId)); db.likeCounts = { ...db.likeCounts, [trackId]: Math.max(0, n - 1) } }
   else { db.likes = [{ userId: user.id, trackId }, ...db.likes]; db.likeCounts = { ...db.likeCounts, [trackId]: n + 1 } }
   save()

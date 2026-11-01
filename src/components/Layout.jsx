@@ -19,14 +19,14 @@ function Player() {
           {notice.type === 'signup' && (<><span>Crée un compte pour écouter 30 secondes gratuites de chaque musique.</span><button className="btn small buy" type="button" onClick={() => { setNotice(null); nav('/compte') }}>Créer un compte</button></>)}
           {notice.type === 'error' && (<><span>{notice.message}</span><button className="btn small ghost" type="button" onClick={() => setNotice(null)}>Fermer</button></>)}
           {notice.type === 'expired' && (<><span>Ton mois d’essai est terminé. Achète ce titre pour l’écouter en entier.</span><button className="btn small ghost" type="button" onClick={() => setNotice(null)}>Fermer</button></>)}
-          {notice.type === 'previewEnd' && track && (<><span>Fin de l’aperçu de 30 s.</span><button className="btn small buy" type="button" onClick={() => { addToCart('track', track.id); setNotice(null); nav('/panier') }}>Acheter · {fcfa(track.price)}</button><button className="btn small ghost" type="button" onClick={() => setNotice(null)}>Fermer</button></>)}
+          {notice.type === 'previewEnd' && track && (<><span>Fin de l’aperçu de 30 s.{!user && ' Crée un compte gratuit pour 1 mois d’écoute en extraits.'}</span>{!user && <button className="btn small ghost" type="button" onClick={() => { setNotice(null); nav('/compte') }}>Créer un compte</button>}<button className="btn small buy" type="button" onClick={() => { addToCart('track', track.id); setNotice(null); nav('/panier') }}>Acheter · {fcfa(track.price)}</button><button className="btn small ghost" type="button" onClick={() => setNotice(null)}>Fermer</button></>)}
         </div>
       )}
       <div className="prow">
         {track ? <Cover album={track.album} size={44} /> : <div className="cover mini" />}
         <div className="pinfo">
           <b>{track ? track.title : 'Choisis un titre'}</b>
-          <span>{track ? `${track.artist.name} · ${mode === 'preview' ? 'Aperçu 30 s' : 'Écoute complète'}` : user ? `Essai gratuit : ${trialDaysLeft(user)} jour(s) restant(s)` : 'Connecte-toi pour écouter'}</span>
+          <span>{track ? `${track.artist.name} · ${mode === 'preview' ? 'Aperçu 30 s' : 'Écoute complète'}` : user ? `Essai gratuit : ${trialDaysLeft(user)} jour(s) restant(s)` : 'Extrait gratuit de 30 s sur chaque titre'}</span>
           <input
             type="range" min="0" max={total || 1} step="0.1" value={Math.min(pos, total || 1)} disabled={!track}
             onChange={(e) => seek(Number(e.target.value))} aria-label="Position de lecture"

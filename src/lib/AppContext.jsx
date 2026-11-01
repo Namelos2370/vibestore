@@ -90,7 +90,7 @@ export function AppProvider({ children }) {
 
   // Si l'utilisateur se déconnecte, on coupe le son.
   useEffect(() => {
-    if (!user && audioRef.current && track) { audioRef.current.pause(); setPlaying(false); setTrack(null) }
+    if (!user && audioRef.current && track && modeRef.current === 'full') { audioRef.current.pause(); setPlaying(false); setTrack(null) }
   }, [user, track])
 
   const addToCart = useCallback((type, id) => {
