@@ -285,6 +285,8 @@ export function updateSettings(patch) {
 }
 /** Les achats sont-ils ouverts ? (interrupteur admin, en attendant les API de paiement) */
 export const purchasesOn = (d) => d.settings.purchasesEnabled !== false
+/** Paiement réel (Mobile Money) actif ? Sinon : simulation. */
+export const livePayments = (d) => REMOTE && d.settings.demoPayments === false
 export function togglePayment(id) {
   if (REMOTE) return remoteTogglePayment(id)
   const m = db.settings.paymentMethods.find((x) => x.id === id)
@@ -315,7 +317,7 @@ const mapTrack = (t) => ({ lyrics: t.lyrics || '', id: t.id, albumId: t.release_
 const mapPurchase = (p) => ({ id: p.id, userId: p.user_id, itemType: p.item_type === 'release' ? 'album' : 'track', itemId: p.item_id, artistId: p.artist_id, amount: p.amount, commissionPct: Number(p.commission_pct), method: p.method, at: ms(p.created_at) })
 const mapSettings = (s) => ({
   commissionPct: Number(s.commission_pct), promoCommissionPct: Number(s.promo_commission_pct), promoMonths: s.promo_months,
-  launchAt: ms(s.launch_at), minPrice: s.min_price, paymentMethods: s.payment_methods, purchasesEnabled: s.purchases_enabled !== false,
+  launchAt: ms(s.launch_at), minPrice: s.min_price, paymentMethods: s.payment_methods, purchasesEnabled: s.purchases_enabled !== false, demoPayments: s.demo_payments !== false,
 })
 const mapProfile = (p, email) => ({
   id: p.id, email: p.email || email, name: p.name, role: p.role, artistStatus: p.role === 'artist' ? 'approved' : 'none',
@@ -500,7 +502,7 @@ async function remoteCreateRelease(admin, { artistId, title, kind, albumPrice, c
   return rel.id
 }
 async function remoteUpdateSettings(patch) {
-  const m = { commissionPct: 'commission_pct', promoCommissionPct: 'promo_commission_pct', promoMonths: 'promo_months', minPrice: 'min_price', purchasesEnabled: 'purchases_enabled' }
+  const m = { commissionPct: 'commission_pct', promoCommissionPct: 'promo_commission_pct', promoMonths: 'promo_months', minPrice: 'min_price', purchasesEnabled: 'purchases_enabled', demoPayments: 'demo_payments' }
   const row = {}
   Object.entries(patch).forEach(([k, v]) => { if (m[k]) row[m[k]] = v })
   must(await supabase.from('settings').update(row).eq('id', 1).select())
@@ -898,4 +900,27 @@ export async function changeArtistEmail(admin, artistId, email) {
   const j = await r.json().catch(() => ({}))
   if (!r.ok) throw new Error(j.error || 'Changement impossible.')
   await refresh()
+}
+
+/** Paiement réel : lance la demande sur le téléphone du client puis attend la validation (jusqu'à ~3 min). */
+export async function payLive(user, cartItems, methodId, phone, onStatus = () => {}) {
+  if (!user) throw new Error('Connecte-toi pour acheter.')
+  const { data: { session } } = await supabase.auth.getSession()
+  const H = { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` }
+  let r
+  try { r = await fetch('/api/pay', { method: 'POST', headers: H, body: JSON.stringify({ items: cartItems, method: methodId, phone }) }) } catch { throw new Error('Connexion impossible. Vérifie ton réseau.') }
+  const j = await r.json().catch(() => ({}))
+  if (!r.ok) throw new Error(j.error || 'Le paiement n’a pas pu démarrer.')
+  onStatus('pending', j.total)
+  let status = j.status
+  for (let i = 0; i < 60 && status === 'pending'; i++) {
+    await new Promise((res) => setTimeout(res, 3000))
+    try {
+      const s = await fetch(`/api/pay-status?ref=${encodeURIComponent(j.ref)}`, { headers: H })
+      if (s.ok) status = (await s.json()).status
+    } catch { /* on réessaie */ }
+  }
+  if (status === 'paid') { await refresh(); return true }
+  if (status === 'failed') throw new Error('Paiement refusé ou annulé. Aucun montant n’a été débité.')
+  throw new Error('Pas de validation reçue. Si ton compte a été débité, écris-nous : la commande sera vérifiée.')
 }

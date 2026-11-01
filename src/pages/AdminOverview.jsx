@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { catalog, fcfa, likeCount, currentCommission } from '../lib/store'
+import { catalog, fcfa, likeCount, currentCommission, livePayments } from '../lib/store'
 
 const DAY = 86400000
 const PERIODS = [[7, '7 jours'], [30, '30 jours'], [0, 'Tout']]
@@ -59,7 +59,7 @@ export default function AdminOverview({ db, go }) {
   if (hidden > 0) todo.push({ k: 'h', text: `${hidden} sortie(s) masquée(s) du catalogue.`, tab: 'artistes' })
   if (!db.albums.some((a) => a.videoUrl)) todo.push({ k: 'c', text: 'Aucun clip ajouté : la page Blue Energy Sessions est vide.', tab: 'artistes' })
   if (!db.artists.length) todo.push({ k: 'z', text: 'Aucun artiste : commence par créer un compte artiste.', tab: 'artistes' })
-  if (db.settings.paymentMethods.some((m) => m.enabled)) todo.push({ k: 'p', text: 'Le paiement est encore simulé : branche un vrai opérateur avant d’ouvrir au public.', tab: 'reglages' })
+  if (!livePayments(db) && db.settings.paymentMethods.some((m) => m.enabled)) todo.push({ k: 'p', text: 'Le paiement est encore simulé : active le paiement réel avant d’ouvrir au public.', tab: 'reglages' })
 
   const nameOf = (p) => (p.itemType === 'album' ? db.albums : db.tracks).find((x) => x.id === p.itemId)?.title || '—'
   const artistOf = (id) => db.artists.find((a) => a.id === id)?.name || '—'

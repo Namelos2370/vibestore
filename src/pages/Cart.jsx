@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useApp } from '../lib/AppContext'
-import { useDb, useUser, catalog, checkout, owns, fcfa, purchasesOn } from '../lib/store'
+import { useDb, useUser, catalog, checkout, owns, fcfa, purchasesOn, livePayments, payLive } from '../lib/store'
 import { Empty } from '../components/ui'
 
 export default function Cart() {
@@ -15,6 +15,7 @@ export default function Cart() {
   const [phone, setPhone] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+  const [info, setInfo] = useState('')
 
   if (!purchasesOn(db)) return <Empty>Les achats ouvrent bientôt. En attendant, écoute les extraits de 30 s et ajoute tes ♥ : tu seras prévenu dès l’ouverture.</Empty>
 
@@ -36,13 +37,19 @@ export default function Cart() {
       return
     }
     setBusy(true)
-    await new Promise((r) => setTimeout(r, 1200)) // simulation de la validation par l'opérateur
     try {
-      await checkout(user, lines.map((l) => ({ type: l.type, id: l.id })), chosen)
+      const items = lines.map((l) => ({ type: l.type, id: l.id }))
+      if (livePayments(db)) {
+        setInfo('Valide le paiement sur ton téléphone (message ou code USSD de l’opérateur)…')
+        await payLive(user, items, chosen, phone)
+      } else {
+        await new Promise((r) => setTimeout(r, 1200)) // simulation de la validation par l'opérateur
+        await checkout(user, items, chosen)
+      }
       clearCart()
       nav('/bibliotheque?achat=ok')
     } catch (e) {
-      setErr(e.message)
+      setErr(e.message); setInfo('')
     } finally {
       setBusy(false)
     }
@@ -80,10 +87,13 @@ export default function Cart() {
           </label>
         )}
         {err && <p className="err" role="alert">{err}</p>}
+        {info && <p className="ok" role="status">{info}</p>}
         <button className="btn buy wide" type="button" disabled={busy || !methods.length} onClick={pay}>
-          {busy ? 'Validation en cours…' : user ? `Payer ${fcfa(total)}` : 'Se connecter pour payer'}
+          {busy ? (livePayments(db) ? 'En attente de ta validation…' : 'Validation en cours…') : user ? `Payer ${fcfa(total)}` : 'Se connecter pour payer'}
         </button>
-        <p className="muted small">Démonstration : le paiement est simulé, rien n’est débité.</p>
+        {livePayments(db)
+          ? <p className="muted small">Paiement sécurisé par Mobile Money. Tu recevras une demande de confirmation sur ton téléphone.</p>
+          : <p className="muted small">Démonstration : le paiement est simulé, rien n’est débité.</p>}
       </section>
     </>
   )

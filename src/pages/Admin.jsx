@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Navigate } from 'react-router-dom'
-import { useDb, useUser, createArtist, createRelease, updateArtist, updateRelease, updateTrack, deleteArtist, deleteRelease, deleteTrack, updateSettings, togglePayment, currentCommission, fcfa, MIN_PRICE, openRequests, purchasesOn } from '../lib/store'
+import { useDb, useUser, createArtist, createRelease, updateArtist, updateRelease, updateTrack, deleteArtist, deleteRelease, deleteTrack, updateSettings, togglePayment, currentCommission, fcfa, MIN_PRICE, openRequests, purchasesOn, livePayments } from '../lib/store'
 import { Empty } from '../components/ui'
 import LyricsEditor from '../components/LyricsEditor'
 import { trackAudioUrl, announce } from '../lib/store'
@@ -349,6 +349,12 @@ export default function Admin() {
             <p className="muted">En attendant le branchement des paiements, tu peux fermer les achats : les boutons d’achat et le panier disparaissent, les extraits et les ♥ restent ouverts. Les achats déjà faits ne changent pas.</p>
             <p>État actuel : <b>{purchasesOn(db) ? 'achats ouverts' : 'achats fermés'}</b></p>
             <button className={'btn ' + (purchasesOn(db) ? 'ghost' : 'buy')} type="button" onClick={async () => { try { await updateSettings({ purchasesEnabled: !purchasesOn(db) }) } catch (x) { window.alert(x.message) } }}>{purchasesOn(db) ? 'Fermer les achats' : 'Rouvrir les achats'}</button>
+          </section>
+          <section className="panel">
+            <h2>Mode de paiement</h2>
+            <p className="muted">En simulation, personne n’est débité. En réel, le client valide un paiement Mobile Money (MTN ou Orange) sur son téléphone et l’achat n’est débloqué qu’une fois l’opérateur confirmé. Le réel exige que les variables du serveur soient configurées.</p>
+            <p>Mode actuel : <b>{livePayments(db) ? 'paiement réel' : 'simulation'}</b></p>
+            <button className={'btn ' + (livePayments(db) ? 'ghost' : 'buy')} type="button" onClick={async () => { if (!livePayments(db) && !window.confirm('Passer en paiement RÉEL ? Les clients seront vraiment débités.')) return; try { await updateSettings({ demoPayments: livePayments(db) }) } catch (x) { window.alert(x.message) } }}>{livePayments(db) ? 'Revenir à la simulation' : 'Activer le paiement réel'}</button>
           </section>
           <section className="panel form">
             <h2>Commission et prix</h2>

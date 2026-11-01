@@ -30,3 +30,7 @@ npm run dev
 1. Supabase Auth, tables et stockage audio à la place de `src/lib/store.js` (les écrans n'ont pas à changer).
 2. Le paiement Mobile Money / carte via un agrégateur, avec confirmation côté serveur (fonction Edge).
 3. Les extraits de 30 s côté serveur (le fichier complet ne doit jamais être servi avant achat).
+
+## Paiement réel Mobile Money (GuTouch / TouchPay)
+Variables à définir sur Vercel (jamais dans le dépôt) : `GT_AGENCE`, `GT_LOGIN_AGENT`, `GT_PASSWORD_AGENT`, `GT_PARTNER_ID`, `GT_AUTH_USER`, `GT_AUTH_PASS`, `SUPABASE_SERVICE_ROLE_KEY`.
+Puis dans l'admin : Réglages > « Activer le paiement réel ». Routes : `/api/pay`, `/api/pay-status`, `/api/pay-callback`.

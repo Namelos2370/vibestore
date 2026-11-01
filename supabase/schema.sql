@@ -465,3 +465,68 @@ create trigger guard_profile_update before update on public.profiles
 -- v0.9 : interrupteur des achats (en attendant les API de paiement)
 -- ============================================================
 alter table public.settings add column if not exists purchases_enabled boolean not null default true;
+
+-- ============================================================
+-- v1.0 : paiement reel Mobile Money (GuTouch / TouchPay)
+-- Ces fonctions ne sont appelables que par le serveur (cle service_role), jamais depuis le navigateur.
+-- ============================================================
+create index if not exists purchases_provider_ref_idx on public.purchases (provider_ref);
+
+-- Cree les achats « en attente » d'une commande (ils ne donnent aucun droit tant qu'ils ne sont pas payes).
+create or replace function public.create_pending_order(p_user uuid, p_items jsonb, p_method text, p_ref text) returns setof public.purchases
+language plpgsql security definer set search_path = public as $$
+declare
+  s public.settings%rowtype;
+  pct numeric;
+  apct numeric;
+  it jsonb;
+  t public.tracks%rowtype;
+  rel public.releases%rowtype;
+  row public.purchases%rowtype;
+begin
+  if p_user is null or not exists (select 1 from public.profiles where id = p_user) then raise exception 'Compte introuvable.'; end if;
+  if exists (select 1 from public.profiles where id = p_user and blocked) then raise exception 'Ce compte est suspendu.'; end if;
+  select * into s from public.settings where id = 1;
+  if not s.purchases_enabled then raise exception 'Les achats ne sont pas encore ouverts.'; end if;
+  if s.demo_payments then raise exception 'Le paiement réel n''est pas activé.'; end if;
+  if not exists (select 1 from jsonb_array_elements(s.payment_methods) m where m->>'id' = p_method and (m->>'enabled')::boolean) then
+    raise exception 'Choisis un moyen de paiement disponible.';
+  end if;
+  pct := case when now() < s.launch_at + make_interval(months => s.promo_months) then s.promo_commission_pct else s.commission_pct end;
+  -- une nouvelle tentative remplace les anciennes commandes restees en attente de cet utilisateur
+  update public.purchases set status = 'failed' where user_id = p_user and status = 'pending';
+
+  for it in select * from jsonb_array_elements(p_items) loop
+    if it->>'type' = 'track' then
+      select * into t from public.tracks where id = (it->>'id')::uuid and status = 'approved';
+      if not found then continue; end if;
+      if exists (select 1 from public.purchases where user_id = p_user and status = 'paid' and
+           ((item_type = 'track' and item_id = t.id) or (item_type = 'release' and item_id = t.release_id))) then continue; end if;
+      select coalesce((select commission_pct from public.artist_private where artist_id = t.artist_id), pct) into apct;
+      insert into public.purchases (user_id, item_type, item_id, artist_id, amount, commission_pct, method, provider_ref, status)
+        values (p_user, 'track', t.id, t.artist_id, t.price, apct, p_method, p_ref, 'pending') returning * into row;
+      return next row;
+    elsif it->>'type' = 'album' then
+      select * into rel from public.releases where id = (it->>'id')::uuid and status = 'approved';
+      if not found then continue; end if;
+      if exists (select 1 from public.purchases where user_id = p_user and status = 'paid' and item_type = 'release' and item_id = rel.id) then continue; end if;
+      select coalesce((select commission_pct from public.artist_private where artist_id = rel.artist_id), pct) into apct;
+      insert into public.purchases (user_id, item_type, item_id, artist_id, amount, commission_pct, method, provider_ref, status)
+        values (p_user, 'release', rel.id, rel.artist_id, rel.price, apct, p_method, p_ref, 'pending') returning * into row;
+      return next row;
+    end if;
+  end loop;
+end $$;
+
+-- Conclut une commande : paye ou echouee (ne touche que les achats encore en attente).
+create or replace function public.finalize_order(p_ref text, p_ok boolean) returns integer
+language plpgsql security definer set search_path = public as $$
+declare n integer;
+begin
+  update public.purchases set status = case when p_ok then 'paid' else 'failed' end where provider_ref = p_ref and status = 'pending';
+  get diagnostics n = row_count;
+  return n;
+end $$;
+
+revoke execute on function public.create_pending_order(uuid, jsonb, text, text) from public, anon, authenticated;
+revoke execute on function public.finalize_order(text, boolean) from public, anon, authenticated;
