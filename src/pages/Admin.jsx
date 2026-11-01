@@ -255,6 +255,7 @@ function AnnounceForm({ admin }) {
     <form className="panel form" onSubmit={send}>
       <h2>Envoyer une annonce</h2>
       <p className="muted small">Elle apparaît dans la cloche de l’app et arrive en notification sur les téléphones qui l’ont activée. Les nouvelles sorties sont annoncées automatiquement.</p>
+      <button className="btn small ghost" type="button" onClick={() => setF({ ...f, title: f.title.startsWith('Blue Energy') ? f.title : 'Blue Energy · ' + f.title, url: 'https://blue-energy-store.vercel.app/#collection' })}>Message partenaire Blue Energy</button>
       <label className="field"><span>Titre</span><input id="ntitle" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder="Nouveau single de …" /></label>
       <label className="field"><span>Message (facultatif)</span><input id="nbody" value={f.body} onChange={(e) => setF({ ...f, body: e.target.value })} /></label>
       <label className="field"><span>Page à ouvrir au clic</span><input id="nurl" value={f.url} onChange={(e) => setF({ ...f, url: e.target.value })} placeholder="/decouvrir" /></label>

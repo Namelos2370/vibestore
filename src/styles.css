@@ -262,3 +262,19 @@ nav a.bell { position: relative; display: inline-flex; align-items: center; padd
 .powered{display:inline-flex;gap:6px;align-items:center;font-size:.8rem;color:var(--muted);text-decoration:none;border:1px solid var(--line);border-radius:999px;padding:4px 12px;width:fit-content}
 .powered b{color:#4aa8ff;letter-spacing:.04em;text-transform:uppercase;font-weight:800}
 .powered:hover{border-color:#4aa8ff}
+.powered img{border-radius:50%;flex:none}
+.partner{display:flex;gap:18px;align-items:center;padding:20px;border:1px solid #1d3b66;border-radius:16px;background:linear-gradient(135deg,#0c1a33,#0b0912);margin-block:28px}
+.partner img{border-radius:50%;flex:none;box-shadow:0 0 28px #2f6bff55}
+.partner h2{margin:2px 0 6px}
+.partner p{margin:0 0 12px}
+@media(max-width:560px){.partner{flex-direction:column;text-align:center}}
+.sess{margin-block:16px}
+.splash{position:fixed;inset:0;z-index:999;background:#0B0912;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;transition:opacity .5s}
+.splash.out{opacity:0;pointer-events:none}
+.splash .s1{border-radius:28px;animation:sp 1s ease both}
+.splash .s2{font-size:2rem}.splash .s2 span{color:#b56bff}
+.splash .s3{display:flex;gap:8px;align-items:center;color:#b9c6e6;animation:sf 1s .5s ease both}
+.splash .s3 img{border-radius:50%}.splash .s3 b{color:#4aa8ff;text-transform:uppercase;letter-spacing:.05em}
+.splash .s4{color:#7f8aa8;letter-spacing:.2em;text-transform:uppercase;font-size:.7rem;animation:sf 1s .8s ease both}
+@keyframes sp{from{opacity:0;transform:scale(.8)}to{opacity:1;transform:none}}
+@keyframes sf{from{opacity:0}to{opacity:1}}

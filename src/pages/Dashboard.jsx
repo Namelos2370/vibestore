@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useDb, catalog, fcfa, trialDaysLeft, myLikes, myArtist, likeCount, owns } from '../lib/store'
+import { PartnerBand } from '../components/BlueEnergy'
 import { AlbumCard, TrackRow, Empty } from '../components/ui'
 
 // Accueil des personnes connectées (la page publique reste pour les visiteurs).
@@ -44,7 +45,7 @@ export default function Dashboard({ user }) {
           <ul className="tracks">
             {notifs.map((n) => (
               <li key={n.id} className="track simple notif">
-                <Link className="tmeta" to={n.url || '/'}><b>{n.title}</b>{n.body && <span>{n.body}</span>}</Link>
+                {/^https?:/.test(n.url || '') ? <a className="tmeta" href={n.url} target="_blank" rel="noopener noreferrer"><b>{n.title}</b>{n.body && <span>{n.body}</span>}</a> : <Link className="tmeta" to={n.url || '/'}><b>{n.title}</b>{n.body && <span>{n.body}</span>}</Link>}
               </li>
             ))}
           </ul>
@@ -76,6 +77,7 @@ export default function Dashboard({ user }) {
         <h2>Tendances</h2>
         {trending.length ? <ul className="tracks">{trending.map((t) => <TrackRow key={t.id} t={t} />)}</ul> : <Empty>Les premiers titres arrivent bientôt.</Empty>}
       </section>
+      <PartnerBand />
     </>
   )
 }

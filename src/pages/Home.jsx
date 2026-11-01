@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useDb, useUser, catalog, fcfa, trialDaysLeft, MIN_PRICE } from '../lib/store'
 import { AlbumCard, TrackRow, Empty } from '../components/ui'
-import { PoweredBy } from '../components/Layout'
+import { PoweredBy, PartnerBand } from '../components/BlueEnergy'
 import Dashboard from './Dashboard'
 
 export default function Home() {
@@ -37,6 +37,8 @@ export default function Home() {
         <h2>Nouveautés</h2>
         {news.length ? <div className="grid">{news.map((al) => <AlbumCard key={al.id} al={al} />)}</div> : <Empty>Les premières sorties arrivent bientôt.</Empty>}
       </section>
+
+      <PartnerBand />
 
       <section className="band">
         <h2>Tu es artiste ?</h2>

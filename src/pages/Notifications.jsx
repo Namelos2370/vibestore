@@ -40,7 +40,7 @@ export default function Notifications() {
         <ul className="tracks">
           {db.notifications.map((n) => (
             <li key={n.id} className="track simple notif">
-              <button className="linkbtn tmeta" type="button" onClick={() => nav(n.url || '/')}>
+              <button className="linkbtn tmeta" type="button" onClick={() => (/^https?:/.test(n.url || '') ? window.open(n.url, '_blank', 'noopener') : nav(n.url || '/'))}>
                 <b>{n.title}</b>
                 {n.body && <span>{n.body}</span>}
               </button>

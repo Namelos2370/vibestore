@@ -4,10 +4,7 @@ import { useApp } from '../lib/AppContext'
 import { autoPush, useDb, useUser, useUnread, signOut, trialDaysLeft, mmss, PREVIEW_SECONDS, fcfa } from '../lib/store'
 import { Cover } from './ui'
 import InstallPrompt from './InstallPrompt'
-
-export function PoweredBy() {
-  return <a className="powered" href="https://blue-energy-store.vercel.app/" target="_blank" rel="noopener noreferrer">Powered by <b>Blue Energy</b></a>
-}
+import { PoweredBy } from './BlueEnergy'
 
 function Player() {
   const { track, playing, pos, mode, notice, setNotice, toggle, seek, addToCart, audioDuration } = useApp()
@@ -61,6 +58,7 @@ export default function Layout() {
             <NavLink to="/" end className="mhide">Accueil</NavLink>
             <NavLink to="/decouvrir" className="mhide">Découvrir</NavLink>
             <NavLink to="/explorer" className="mhide">Explorer</NavLink>
+            <NavLink to="/sessions" className="mhide">Sessions</NavLink>
             {user && <NavLink to="/bibliotheque" className="mhide">Ma musique</NavLink>}
             {user && user.role === 'artist' && <NavLink to="/studio">Studio</NavLink>}
             {user && user.role === 'admin' && <NavLink to="/admin">Admin</NavLink>}
