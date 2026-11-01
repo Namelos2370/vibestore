@@ -30,7 +30,7 @@ export default function Sessions() {
       {top.length > 0 && (
         <section>
           <h2>Artistes à suivre</h2>
-          <div className="chips">{top.map(({ a }, i) => <Link key={a.id} className="chip" to={`/artiste/${a.id}`}>{i === 0 ? '🏆 ' : ''}{a.name}</Link>)}</div>
+          <div className="chips">{top.map(({ a }, i) => <Link key={a.id} className="chip" to={`/artiste/${a.id}`}>{i === 0 ? '' : ''}{a.name}</Link>)}</div>
         </section>
       )}
       {best.length > 0 && <section><h2>Sorties du moment</h2><div className="grid">{best.map((al) => <AlbumCard key={al.id} al={al} />)}</div></section>}

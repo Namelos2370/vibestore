@@ -67,7 +67,7 @@ export function ArtistSheet({ admin, artist: a, onClose }) {
 
       <div className="stats">
         <div className="stat"><span>Écoutes</span><b>{plays}</b></div>
-        <div className="stat"><span>♥ Appréciations</span><b>{likes}</b></div>
+        <div className="stat"><span>J’aime</span><b>{likes}</b></div>
         <div className="stat"><span>Ventes</span><b>{bal.sales}</b></div>
         <div className="stat hi"><span>Reste dû à l’artiste</span><b>{fcfa(bal.due)}</b></div>
       </div>

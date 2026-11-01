@@ -24,7 +24,7 @@ export default function Dashboard({ user }) {
   return (
     <>
       <span className="eyebrow">{user.role === 'admin' ? 'Équipe VibeStore' : user.role === 'artist' ? 'Espace artiste' : 'Pour toi'}</span>
-      <h1 className="h1">Salut {first} 👋</h1>
+      <h1 className="h1">Salut {first}</h1>
       <div className="row">
         <Link className="btn buy" to="/decouvrir">Découvrir</Link>
         <Link className="btn ghost" to="/clips">Clips</Link>
@@ -37,7 +37,7 @@ export default function Dashboard({ user }) {
       {artist && (
         <div className="stats">
           <div className="stat"><span>Écoutes</span><b>{artistPlays}</b></div>
-          <div className="stat"><span>♥ Appréciations</span><b>{artistLikes}</b></div>
+          <div className="stat"><span>J’aime</span><b>{artistLikes}</b></div>
           <div className="stat"><span>Sons en ligne</span><b>{artistTracks.length - artistClips}</b></div>
           <div className="stat"><span>Clips en ligne</span><b>{artistClips}</b></div>
         </div>

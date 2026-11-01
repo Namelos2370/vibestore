@@ -75,7 +75,7 @@ export default function Studio() {
 
       <div className="stats">
         <div className="stat"><span>Écoutes</span><b>{plays}</b></div>
-        <div className="stat"><span>♥ Appréciations</span><b>{likes}</b></div>
+        <div className="stat"><span>J’aime</span><b>{likes}</b></div>
         <div className="stat"><span>Ventes</span><b>{sales.length}</b></div>
         <div className="stat"><span>Chiffre d’affaires</span><b>{fcfa(bal.gross)}</b></div>
       </div>
@@ -106,7 +106,7 @@ export default function Studio() {
           <ul className="tracks">
             {tracks.filter((t) => !isClip(t)).map((t) => (
               <li key={t.id} className="track simple">
-                <div className="tmeta"><b>{t.title}</b><span>{fcfa(t.price)} · {t.plays || 0} écoutes · ♥ {likeCount(db, t.id)} · {salesOf(t)} ventes</span></div>
+                <div className="tmeta"><b>{t.title}</b><span>{fcfa(t.price)} · {t.plays || 0} écoutes · {likeCount(db, t.id)} j’aime · {salesOf(t)} ventes</span></div>
                 <span className="badge ok">En ligne</span>
               </li>
             ))}
@@ -120,7 +120,7 @@ export default function Studio() {
           <ul className="tracks">
             {tracks.filter(isClip).map((t) => (
               <li key={t.id} className="track simple">
-                <div className="tmeta"><b>{t.title}<span className="badge clip">🎬 Clip</span></b><span>{fcfa(t.price)} · {t.plays || 0} écoutes · ♥ {likeCount(db, t.id)} · {salesOf(t)} ventes</span></div>
+                <div className="tmeta"><b>{t.title}<span className="badge clip">Clip</span></b><span>{fcfa(t.price)} · {t.plays || 0} écoutes · {likeCount(db, t.id)} j’aime · {salesOf(t)} ventes</span></div>
                 <span className="badge ok">En ligne</span>
               </li>
             ))}

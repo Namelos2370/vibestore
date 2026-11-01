@@ -127,7 +127,7 @@ export default function AdminOverview({ db, go }) {
         <Kpi label="Clips en ligne" value={clips.titles} />
         <Kpi label="Auditeurs inscrits" value={v.totalMembers} />
       </div>
-      <p className="muted small">Commission appliquée aujourd’hui : {currentCommission(db)} %. Les écoutes et ♥ sont des totaux ; les ventes suivent la période choisie.</p>
+      <p className="muted small">Commission appliquée aujourd’hui : {currentCommission(db)} %. Les écoutes et j’aime sont des totaux ; les ventes suivent la période choisie.</p>
 
       <section className="panel">
         <h2>Ventes par jour</h2>
@@ -140,13 +140,13 @@ export default function AdminOverview({ db, go }) {
           <i className="s" style={{ width: (sounds.rev / totalRev) * 100 + '%' }} /><i className="c" style={{ width: (clips.rev / totalRev) * 100 + '%' }} />
         </div>
         <div className="twocol">
-          {[[sounds, '🎵 Sons', 's'], [clips, '🎬 Clips', 'c']].map(([x, name, cls]) => (
+          {[[sounds, 'Sons', 's'], [clips, 'Clips', 'c']].map(([x, name, cls]) => (
             <div key={x.m} className={'mediacard ' + cls}>
               <h3>{name}</h3>
               <b className="big">{fcfa(x.rev)}</b>
               <span className="muted small">{x.sales} vente(s) {days ? 'sur la période' : 'au total'}</span>
               <ul className="plain mini">
-                <li>{x.titles} en ligne</li><li>{x.plays} écoutes</li><li>♥ {x.likes}</li>
+                <li>{x.titles} en ligne</li><li>{x.plays} écoutes</li><li>{x.likes} j’aime</li>
               </ul>
               <button className="btn small ghost" type="button" onClick={() => go(x.m === 'clip' ? 'clips' : 'sons')}>Gérer</button>
             </div>
@@ -162,7 +162,7 @@ export default function AdminOverview({ db, go }) {
         <section className="panel">
           <h2>Dernières ventes</h2>
           {recent.length ? <ul className="tracks">{recent.map((p) => (
-            <li key={p.id} className="track simple"><div className="tmeta"><b>{purchaseMedia(db, p) === 'clip' ? '🎬 ' : '🎵 '}{nameOf(p)}</b><span>{artistOf(p.artistId)} · {new Date(p.at).toLocaleDateString('fr-FR')}</span></div><span className="price">{fcfa(p.amount)}</span></li>
+            <li key={p.id} className="track simple"><div className="tmeta"><b>{purchaseMedia(db, p) === 'clip' ? '' : ''}{nameOf(p)}</b><span>{artistOf(p.artistId)} · {new Date(p.at).toLocaleDateString('fr-FR')}</span></div><span className="price">{fcfa(p.amount)}</span></li>
           ))}</ul> : <p className="muted">Aucune vente pour le moment.</p>}
         </section>
       </div>
@@ -170,11 +170,11 @@ export default function AdminOverview({ db, go }) {
       <div className="twocol">
         <section className="panel">
           <h2>Top artistes</h2>
-          {v.artistRows.length ? <ol className="rank">{v.artistRows.map((r) => <li key={r.a.id}><b>{r.a.name}</b><span>{r.plays} écoutes · ♥ {r.likes} · {r.sales} vente(s) · {fcfa(r.rev)}</span></li>)}</ol> : <p className="muted">Pas encore d’artiste.</p>}
+          {v.artistRows.length ? <ol className="rank">{v.artistRows.map((r) => <li key={r.a.id}><b>{r.a.name}</b><span>{r.plays} écoutes · {r.likes} j’aime · {r.sales} vente(s) · {fcfa(r.rev)}</span></li>)}</ol> : <p className="muted">Pas encore d’artiste.</p>}
         </section>
         <section className="panel">
           <h2>Top titres</h2>
-          {v.trackRows.length ? <ol className="rank">{v.trackRows.map((r) => <li key={r.t.id}><b>{isClip(r.t) ? '🎬 ' : '🎵 '}{r.t.title}</b><span>{artistOf(r.t.artistId)} · {r.t.plays || 0} écoutes · ♥ {r.likes} · {r.sales} vente(s)</span></li>)}</ol> : <p className="muted">Pas encore de titre.</p>}
+          {v.trackRows.length ? <ol className="rank">{v.trackRows.map((r) => <li key={r.t.id}><b>{isClip(r.t) ? '' : ''}{r.t.title}</b><span>{artistOf(r.t.artistId)} · {r.t.plays || 0} écoutes · {r.likes} j’aime · {r.sales} vente(s)</span></li>)}</ol> : <p className="muted">Pas encore de titre.</p>}
         </section>
       </div>
     </>

@@ -37,7 +37,7 @@ export function TrackRow({ t, showArtist = true }) {
         {on && playing ? '❚❚' : '▶'}
       </button>
       <div className="tmeta">
-        <b>{t.title}{isClip(t) && <span className="badge clip" title="Titre disponible en clip vidéo">🎬 Clip</span>}</b>
+        <b>{t.title}{isClip(t) && <span className="badge clip" title="Titre disponible en clip vidéo">Clip</span>}</b>
         <span>
           {showArtist && <Link to={`/artiste/${t.artist.id}`}>{t.artist.name}</Link>}
           {showArtist && ' · '}
@@ -90,8 +90,8 @@ export function Clip({ url }) {
 export function MediaSwitch() {
   return (
     <div className="mediaswitch" role="tablist" aria-label="Type de contenu">
-      <NavLink to="/explorer" role="tab">🎵 Sons</NavLink>
-      <NavLink to="/clips" role="tab">🎬 Clips</NavLink>
+      <NavLink to="/explorer" role="tab">Sons</NavLink>
+      <NavLink to="/clips" role="tab">Clips</NavLink>
     </div>
   )
 }
@@ -105,7 +105,7 @@ export function ClipCard({ t }) {
       <button className="clipart" type="button" onClick={() => play(t)} aria-label={(on && playing ? 'Pause ' : 'Écouter l’extrait de ') + t.title}>
         <Cover album={t.album} />
         <span className="clipplay">{on && playing ? '❚❚' : '▶'}</span>
-        <span className="cliptag">🎬 Clip · {mmss(t.duration)}</span>
+        <span className="cliptag">Clip · {mmss(t.duration)}</span>
       </button>
       <div className="clipbody">
         <b>{t.title}</b>

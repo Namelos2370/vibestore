@@ -20,7 +20,7 @@ export default function Artist() {
         <h1 className="h1">{a.name}{a.verified && <span className="vbadge" title="Artiste vérifié">✔</span>}</h1>
       </div>
       {a.bio && <p className="lead">{a.bio}</p>}
-      <p className="muted small">{all.reduce((n, t) => n + (t.plays || 0), 0)} écoutes · ♥ {all.reduce((n, t) => n + likeCount(db, t.id), 0)} · {ts.length} son(s) · {cs.length} clip(s)</p>
+      <p className="muted small">{all.reduce((n, t) => n + (t.plays || 0), 0)} écoutes · {all.reduce((n, t) => n + likeCount(db, t.id), 0)} j’aime · {ts.length} son(s) · {cs.length} clip(s)</p>
       <div className="links">
         {a.links?.instagram && <a className="btn small ghost" href={a.links.instagram} target="_blank" rel="noopener noreferrer">Instagram</a>}
         {a.links?.tiktok && <a className="btn small ghost" href={a.links.tiktok} target="_blank" rel="noopener noreferrer">TikTok</a>}

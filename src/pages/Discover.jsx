@@ -126,7 +126,7 @@ export default function Discover() {
             )}
             <div className="slidetools">
               {t.lyrics && <button className="iconbtn" type="button" onClick={() => openLyrics(t, on)} aria-label="Paroles">♪</button>}
-              {t.album.videoUrl && <button className="iconbtn" type="button" onClick={() => { if (on && playing) toggle(); setClip(t.id) }} aria-label="Voir le clip">🎬</button>}
+              {t.album.videoUrl && <button className="iconbtn" type="button" onClick={() => { if (on && playing) toggle(); setClip(t.id) }} aria-label="Voir le clip"></button>}
               <button className={'iconbtn' + (favs.includes(t.id) ? ' on' : '')} type="button" onClick={() => like(t)} aria-pressed={favs.includes(t.id)} aria-label={favs.includes(t.id) ? 'Retirer des favoris' : 'Ajouter aux favoris'}>{favs.includes(t.id) ? '♥' : '♡'}<small className="cnt">{likeCount(db, t.id) || ''}</small></button>
               <button className="iconbtn" type="button" onClick={() => share(t)} aria-label="Partager">↗</button>
             </div>

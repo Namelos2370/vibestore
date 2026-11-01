@@ -88,7 +88,7 @@ function ReleaseForm({ admin, artists, preset, media = 'sound' }) {
   const shown = kind === 'single' ? rows.slice(0, 1) : rows
   return (
     <form className="panel form" onSubmit={submit}>
-      <h2>{clip ? '🎬 Ajouter un clip pour un artiste' : '🎵 Ajouter un son pour un artiste'}</h2>
+      <h2>{clip ? 'Ajouter un clip pour un artiste' : 'Ajouter un son pour un artiste'}</h2>
       <p className="muted small">{clip ? 'Le clip est publié dans l’espace Clips. Le public écoute gratuitement un extrait de 30 s (le son du clip) ; l’acheteur reçoit le clip complet.' : 'Le son est publié directement dans l’espace Sons, sans étape de validation.'}</p>
       <div className="row wrap">
         <label className="field grow2"><span>Artiste</span>
@@ -169,7 +169,7 @@ function CatalogManager({ admin, onSheet, mode = 'artists' }) {
   const nClips = (id) => db.tracks.filter((t) => t.artistId === id && isClip(t)).length
   return (
     <section>
-      <h2>{mode === 'sound' ? '🎵 Sons en ligne' : mode === 'clip' ? '🎬 Clips en ligne' : 'Artistes du catalogue'}</h2>
+      <h2>{mode === 'sound' ? 'Sons en ligne' : mode === 'clip' ? 'Clips en ligne' : 'Artistes du catalogue'}</h2>
       {msg && <p className="err" role="alert">{msg}</p>}
       {db.artists.length === 0 && <Empty>Aucun artiste pour le moment. Ajoute le premier dans l’onglet Artistes.</Empty>}
       {media && db.artists.length > 0 && !db.artists.some((a) => relsOf(a.id).length) && <Empty>{mode === 'clip' ? 'Aucun clip pour le moment. Publie le premier ci-dessous.' : 'Aucun son pour le moment. Publie le premier ci-dessous.'}</Empty>}
@@ -315,7 +315,7 @@ export default function Admin() {
       <h1 className="h1">Administration</h1>
       <p className="muted">Les comptes artistes et leurs titres sont ajoutés uniquement ici, par l’équipe VibeStore. Les artistes ne s’inscrivent pas seuls et ne publient pas eux-mêmes.</p>
       <div className="tabs" role="tablist">
-        {[['apercu', 'Aperçu'], ['artistes', 'Artistes'], ['sons', '🎵 Sons'], ['clips', '🎬 Clips'], ['inscrits', 'Inscrits'], ['reversements', 'Reversements'], ['demandes', `Demandes${openRequests(db) ? ` (${openRequests(db)})` : ''}`], ['annonces', 'Annonces'], ['ventes', 'Ventes'], ['reglages', 'Réglages']].map(([k, l]) => (
+        {[['apercu', 'Aperçu'], ['artistes', 'Artistes'], ['sons', 'Sons'], ['clips', 'Clips'], ['inscrits', 'Inscrits'], ['reversements', 'Reversements'], ['demandes', `Demandes${openRequests(db) ? ` (${openRequests(db)})` : ''}`], ['annonces', 'Annonces'], ['ventes', 'Ventes'], ['reglages', 'Réglages']].map(([k, l]) => (
           <button key={k} role="tab" aria-selected={tab === k} className={'tab' + (tab === k ? ' on' : '')} type="button" onClick={() => setTab(k)}>{l}</button>
         ))}
       </div>
@@ -361,7 +361,7 @@ export default function Admin() {
           {db.purchases.length ? (
             <ul className="tracks">{[...db.purchases].reverse().map((p) => (
               <li key={p.id} className="track simple">
-                <div className="tmeta"><b>{purchaseMedia(db, p) === 'clip' ? '🎬 ' : '🎵 '}{(p.itemType === 'album' ? db.albums : db.tracks).find((x) => x.id === p.itemId)?.title || '—'}</b><span>{artistName(p.artistId)} · {new Date(p.at).toLocaleDateString('fr-FR')} · commission {p.commissionPct} %</span></div>
+                <div className="tmeta"><b>{purchaseMedia(db, p) === 'clip' ? '' : ''}{(p.itemType === 'album' ? db.albums : db.tracks).find((x) => x.id === p.itemId)?.title || '—'}</b><span>{artistName(p.artistId)} · {new Date(p.at).toLocaleDateString('fr-FR')} · commission {p.commissionPct} %</span></div>
                 <span className="price">{fcfa(p.amount)}</span>
               </li>
             ))}</ul>
@@ -373,7 +373,7 @@ export default function Admin() {
         <>
           <section className="panel">
             <h2>Achats</h2>
-            <p className="muted">En attendant le branchement des paiements, tu peux fermer les achats : les boutons d’achat et le panier disparaissent, les extraits et les ♥ restent ouverts. Les achats déjà faits ne changent pas.</p>
+            <p className="muted">En attendant le branchement des paiements, tu peux fermer les achats : les boutons d’achat et le panier disparaissent, les extraits et les j’aime restent ouverts. Les achats déjà faits ne changent pas.</p>
             <p>État actuel : <b>{purchasesOn(db) ? 'achats ouverts' : 'achats fermés'}</b></p>
             <button className={'btn ' + (purchasesOn(db) ? 'ghost' : 'buy')} type="button" onClick={async () => { try { await updateSettings({ purchasesEnabled: !purchasesOn(db) }) } catch (x) { window.alert(x.message) } }}>{purchasesOn(db) ? 'Fermer les achats' : 'Rouvrir les achats'}</button>
           </section>

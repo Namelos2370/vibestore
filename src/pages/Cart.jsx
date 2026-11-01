@@ -17,7 +17,7 @@ export default function Cart() {
   const [err, setErr] = useState('')
   const [info, setInfo] = useState('')
 
-  if (!purchasesOn(db)) return <Empty>Les achats ouvrent bientôt. En attendant, écoute les extraits de 30 s et ajoute tes ♥ : tu seras prévenu dès l’ouverture.</Empty>
+  if (!purchasesOn(db)) return <Empty>Les achats ouvrent bientôt. En attendant, écoute les extraits de 30 s et ajoute tes coups de cœur : tu seras prévenu dès l’ouverture.</Empty>
 
   const lines = cart
     .map((c) => {
