@@ -258,3 +258,4 @@ nav a.bell { position: relative; display: inline-flex; align-items: center; padd
 .install .itext span{opacity:.85}
 .sharei{font-style:normal;display:inline-block;border:1px solid currentColor;border-radius:5px;padding:0 5px}
 @media(min-width:900px){.install{bottom:20px}}
+.chip .cs{opacity:.7;font-size:.75rem}

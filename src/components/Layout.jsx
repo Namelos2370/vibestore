@@ -76,7 +76,6 @@ export default function Layout() {
       <main className="wrap page"><Outlet /></main>
       <footer className="wrap foot">
         <span>© ETS VibeStore · Yaoundé, Cameroun</span>
-        <span>Mode démonstration : données d’exemple, paiement simulé.</span>
       </footer>
       <Player />
       <InstallPrompt />

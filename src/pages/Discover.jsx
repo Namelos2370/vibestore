@@ -32,6 +32,12 @@ export default function Discover() {
   const [lyr, setLyr] = useState(null)
   const [clip, setClip] = useState(null)
   const favs = myLikes(db, user)
+  function openLyrics(t, on) {
+    const r = listenRight(db, user, t)
+    if (r === 'signup') { setToast('Crée un compte gratuit pour lire les paroles.'); setTimeout(() => nav('/compte'), 1400); return }
+    if (r === 'expired') { setToast('Ton essai est terminé : achète ce titre pour lire les paroles.'); return }
+    setLyr(t.id); if (!on || !playing) play(t)
+  }
   async function like(t) {
     try { if (!(await toggleLike(t.id))) { setToast('Connecte-toi pour garder tes coups de cœur dans Ma musique.'); setTimeout(() => nav('/compte'), 1400) } } catch (e) { setToast(e.message) }
   }
@@ -110,7 +116,7 @@ export default function Discover() {
               )}
               <AddButton type="track" id={t.id} price={t.price} />
             </div>
-            {lyr === t.id && <Lyrics t={t} on={on} pos={pos} onClose={() => setLyr(null)} />}
+            {lyr === t.id && listenRight(db, user, t) !== 'signup' && listenRight(db, user, t) !== 'expired' && <Lyrics t={t} on={on} pos={pos} onClose={() => setLyr(null)} />}
             {clip === t.id && (
               <div className="modal">
                 <Clip url={t.album.videoUrl} />
@@ -118,7 +124,7 @@ export default function Discover() {
               </div>
             )}
             <div className="slidetools">
-              {t.lyrics && <button className="iconbtn" type="button" onClick={() => { setLyr(t.id); if (!on || !playing) play(t) }} aria-label="Paroles">♪</button>}
+              {t.lyrics && <button className="iconbtn" type="button" onClick={() => openLyrics(t, on)} aria-label="Paroles">♪</button>}
               {t.album.videoUrl && <button className="iconbtn" type="button" onClick={() => { if (on && playing) toggle(); setClip(t.id) }} aria-label="Voir le clip">🎬</button>}
               <button className={'iconbtn' + (favs.includes(t.id) ? ' on' : '')} type="button" onClick={() => like(t)} aria-pressed={favs.includes(t.id)} aria-label={favs.includes(t.id) ? 'Retirer des favoris' : 'Ajouter aux favoris'}>{favs.includes(t.id) ? '♥' : '♡'}<small className="cnt">{likeCount(db, t.id) || ''}</small></button>
               <button className="iconbtn" type="button" onClick={() => share(t)} aria-label="Partager">↗</button>
