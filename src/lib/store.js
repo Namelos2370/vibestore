@@ -294,6 +294,8 @@ export function togglePayment(id) {
   save()
 }
 
+/** Le fichier du titre est-il un clip vidéo (au lieu d'un MP3) ? */
+export const isClip = (t) => !!t && /\.(mp4|m4v|mov|webm)$/i.test(t.audioPath || t.audioName || '')
 export const fcfa = (n) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' FCFA'
 export const mmss = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`
 

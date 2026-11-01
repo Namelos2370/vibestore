@@ -121,8 +121,8 @@ function ReleaseForm({ admin, artists, preset }) {
           <label className="field grow2"><span>Titre {i + 1}</span><input id={'tt' + i} value={r.title} onChange={upd(i, 'title')} /></label>
           <label className="field"><span>Prix (FCFA, min. {min})</span><input id={'tp' + i} type="number" min={min} step="100" value={r.price} onChange={upd(i, 'price')} /></label>
           <label className="field"><span>Durée (s, auto avec un fichier)</span><input id={'td' + i} type="number" min="30" value={r.duration} onChange={upd(i, 'duration')} /></label>
-          <label className="field grow2"><span>Fichier audio (MP3, M4A ou WAV){r.audioName ? ` : ${r.audioName}` : ''}</span>
-            <input id={'ta' + i} type="file" onChange={pickAudio(i)} />
+          <label className="field grow2"><span>Fichier du titre : audio (MP3, M4A, WAV) <b>ou clip vidéo (MP4)</b>{r.audioName ? ` : ${r.audioName}` : ''}</span>
+            <input id={'ta' + i} type="file" accept="audio/*,video/mp4,video/quicktime,video/webm,.mp3,.m4a,.wav,.mp4,.mov,.webm" onChange={pickAudio(i)} />
           </label>
           <div className="grow2" style={{ flexBasis: '100%' }}>
             <LyricsEditor value={r.lyrics} onChange={(v) => setRows((rs) => rs.map((x, j) => (j === i ? { ...x, lyrics: v } : x)))}
@@ -131,7 +131,7 @@ function ReleaseForm({ admin, artists, preset }) {
         </div>
       ))}
       {kind === 'album' && <button className="btn small ghost" type="button" onClick={() => setRows([...rows, emptyRow()])}>+ Ajouter un titre</button>}
-      <p className="muted small">Le fichier complet est stocké en privé (accessible seulement après achat). L’extrait de 30 s et la durée sont créés automatiquement. Sans fichier, un son de test est utilisé. Taille maximum : 50 Mo par titre.</p>
+      <p className="muted small">Le fichier complet est stocké en privé (accessible seulement après achat). Si tu envoies un clip vidéo à la place d’un MP3, le son du clip sert pour l’extrait de 30 s (écoute gratuite) et l’acheteur reçoit le clip complet. La durée et l’extrait sont créés automatiquement. Sans fichier, un son de test est utilisé. Taille maximum : 50 Mo par titre.</p>
       {err && <p className="err" role="alert">{err}</p>}
       {ok && <p className="ok" role="status">{ok}</p>}
       <button className="btn buy" type="submit" disabled={busy}>{busy ? 'Envoi en cours…' : 'Publier dans le catalogue'}</button>

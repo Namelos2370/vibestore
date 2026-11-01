@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useApp } from '../lib/AppContext'
-import { useDb, useUser, owns, fcfa, mmss, coverUrl, purchasesOn } from '../lib/store'
+import { useDb, useUser, owns, fcfa, mmss, coverUrl, purchasesOn, isClip } from '../lib/store'
 
 export function Cover({ album, size }) {
   const c = album?.color || '#8B5CF6'
@@ -37,7 +37,7 @@ export function TrackRow({ t, showArtist = true }) {
         {on && playing ? '❚❚' : '▶'}
       </button>
       <div className="tmeta">
-        <b>{t.title}</b>
+        <b>{t.title}{isClip(t) && <span className="badge clip" title="Titre disponible en clip vidéo">🎬 Clip</span>}</b>
         <span>
           {showArtist && <Link to={`/artiste/${t.artist.id}`}>{t.artist.name}</Link>}
           {showArtist && ' · '}

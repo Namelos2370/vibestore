@@ -314,3 +314,8 @@ textarea{width:100%;font:inherit;color:inherit;background:var(--surface);border:
 .chip.warn{background:#5a1f2a;color:#ffb4c0}
 
 .badge.soon{background:var(--surface2);color:var(--muted,#A59FC0);border:1px dashed var(--line);padding:6px 12px;border-radius:99px;font-size:.8rem;white-space:nowrap}
+
+.badge.clip{display:inline-block;margin-left:8px;font-size:.7rem;font-weight:700;padding:2px 8px;border-radius:99px;background:#2B1B66;color:#CDBBFF;vertical-align:middle}
+.clipmodal{position:fixed;inset:0;background:rgba(5,4,10,.88);display:grid;place-items:center;z-index:90;padding:16px}
+.clipmodal video{max-width:100%;max-height:78vh;border-radius:16px;background:#000}
+.clipmodal .cbox{display:flex;flex-direction:column;gap:12px;align-items:center;max-width:900px;width:100%}

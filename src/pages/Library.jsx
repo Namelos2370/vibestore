@@ -1,12 +1,14 @@
 import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { useDb, useUser, catalog, owns, fcfa, myLikes } from '../lib/store'
-import { trackAudioUrl } from '../lib/store'
+import { trackAudioUrl, isClip } from '../lib/store'
+import { useState } from 'react'
 import { AlbumCard, TrackRow, Empty } from '../components/ui'
 
 export default function Library() {
   const db = useDb()
   const user = useUser()
   const [sp] = useSearchParams()
+  const [clip, setClip] = useState(null)
     if (!user) return <Navigate to="/compte" replace />
   const { albums, tracks } = catalog(db)
   const myTracks = tracks.filter((t) => owns(db, user, { type: 'track', id: t.id }))
@@ -38,6 +40,7 @@ export default function Library() {
             {myTracks.map((t) => (
               <div key={t.id} className="withdl">
                 <TrackRow t={t} />
+                {isClip(t) && <button className="btn small buy" type="button" onClick={async () => { try { setClip({ title: t.title, url: await trackAudioUrl(t, 'full') }) } catch (e) { window.alert(e.message) } }}>Regarder le clip</button>}
                 <button className="btn small ghost" type="button" onClick={async () => { try { const u = await trackAudioUrl(t, 'full', { download: true }); const a = document.createElement('a'); a.href = u; a.download = `${t.artist.name} - ${t.title}`; document.body.appendChild(a); a.click(); a.remove() } catch (e) { window.alert(e.message) } }}>Télécharger</button>
               </div>
             ))}
@@ -58,6 +61,14 @@ export default function Library() {
           </ul>
         ) : <Empty>Aucun achat.</Empty>}
       </section>
+      {clip && (
+        <div className="clipmodal" role="dialog" aria-label={`Clip : ${clip.title}`} onClick={() => setClip(null)}>
+          <div className="cbox" onClick={(e) => e.stopPropagation()}>
+            <video src={clip.url} controls autoPlay playsInline />
+            <button className="btn ghost" type="button" onClick={() => setClip(null)}>Fermer</button>
+          </div>
+        </div>
+      )}
     </>
   )
 }

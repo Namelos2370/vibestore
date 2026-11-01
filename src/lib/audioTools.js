@@ -17,7 +17,7 @@ export async function analyseAudio(file, previewSeconds = 30) {
     for (let i = 0; i < fade; i++) mono[n - 1 - i] *= i / fade
     return { duration: Math.round(buf.duration), preview: encodeWav(mono, rate) }
   } catch (e) {
-    throw new Error('Fichier audio illisible. Utilise un MP3 ou un WAV.')
+    throw new Error('Fichier illisible. Utilise un MP3, un WAV ou un clip MP4 avec du son.')
   } finally {
     ctx.close && ctx.close()
   }
