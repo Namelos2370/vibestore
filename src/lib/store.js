@@ -110,8 +110,8 @@ export function useUser() {
   return db.users.find((u) => u.id === id) || null
 }
 // L'inscription libre crée toujours un compte auditeur. Les comptes artistes sont créés par VibeStore (createArtist).
-export function signUp({ email, password, name }) {
-  if (REMOTE) return remoteSignUp({ email, password, name })
+export function signUp({ email, password, name, city }) {
+  if (REMOTE) return remoteSignUp({ email, password, name, city })
   email = email.trim().toLowerCase()
   if (!email || !password || !name.trim()) throw new Error('Remplis tous les champs.')
   if (password.length < 6) throw new Error('Le mot de passe doit avoir au moins 6 caractères.')
@@ -119,7 +119,7 @@ export function signUp({ email, password, name }) {
   const now = Date.now()
   const user = {
     id: uid('u-'), email, password, name: name.trim(),
-    role: 'listener', artistStatus: 'none',
+    role: 'listener', artistStatus: 'none', city: (city || '').trim(), blocked: false, blockedReason: '',
     createdAt: now, trialEndsAt: now + TRIAL_DAYS * DAY,
   }
   db.users.push(user)
@@ -132,6 +132,7 @@ export function signIn(email, password) {
   if (REMOTE) return remoteSignIn(email, password)
   const u = db.users.find((x) => x.email === email.trim().toLowerCase() && x.password === password)
   if (!u) throw new Error('Email ou mot de passe incorrect.')
+  if (u.blocked) throw new Error('Ce compte est suspendu. Contacte l’équipe VibeStore.')
   if (u.role === 'artist') {
     const a = db.artists.find((x) => x.userId === u.id)
     if (a && a.account === 'invited') a.account = 'active' // première connexion : le compte devient actif
@@ -196,6 +197,7 @@ export function currentCommission(d = db) {
 export function checkout(user, cartItems, methodId) {
   if (REMOTE) return remoteCheckout(user, cartItems, methodId)
   if (!user) throw new Error('Connecte-toi pour acheter.')
+  if (user.blocked) throw new Error('Ce compte est suspendu.')
   const method = db.settings.paymentMethods.find((m) => m.id === methodId && m.enabled)
   if (!method) throw new Error('Choisis un moyen de paiement disponible.')
   const pct = currentCommission()
@@ -314,10 +316,11 @@ const mapSettings = (s) => ({
 })
 const mapProfile = (p, email) => ({
   id: p.id, email: p.email || email, name: p.name, role: p.role, artistStatus: p.role === 'artist' ? 'approved' : 'none',
-  createdAt: ms(p.created_at), trialEndsAt: ms(p.trial_ends_at),
+  createdAt: ms(p.created_at), trialEndsAt: ms(p.trial_ends_at), city: p.city || '', blocked: !!p.blocked, blockedReason: p.blocked_reason || '',
 })
 
 let refreshing = null
+let suspendedNotice = false
 function notify() { version++; listeners.forEach((l) => l()) }
 export function refresh() {
   if (!REMOTE) return Promise.resolve()
@@ -361,9 +364,10 @@ export function refresh() {
       next.likes = (lk.data || []).map((r) => ({ userId: session.user.id, trackId: r.track_id }))
       next.likeCounts = Object.fromEntries((lc.data || []).map((r) => [r.track_id, Number(r.n)]))
       me = pr.data ? mapProfile(pr.data, session.user.email) : null
+      if (me && me.blocked) { supabase.auth.signOut(); me = null; suspendedNotice = true }
       if (me && me.role === 'admin') {
-        const mb = await supabase.from('profiles').select('id,role,created_at').order('created_at', { ascending: false }).limit(5000)
-        next.members = (mb.data || []).map((m) => ({ id: m.id, role: m.role, createdAt: ms(m.created_at) }))
+        const mb = await supabase.from('profiles').select('id,name,email,city,role,blocked,blocked_reason,created_at').order('created_at', { ascending: false }).limit(5000)
+        next.members = (mb.data || []).map((m) => ({ id: m.id, name: m.name, email: m.email, city: m.city || '', role: m.role, blocked: !!m.blocked, blockedReason: m.blocked_reason || '', createdAt: ms(m.created_at) }))
       }
       next.users = me ? [me] : []
       db = next
@@ -381,11 +385,11 @@ if (REMOTE) {
   supabase.auth.onAuthStateChange((event) => { if (event !== 'TOKEN_REFRESHED') setTimeout(refresh, 0) })
 }
 
-async function remoteSignUp({ email, password, name }) {
+async function remoteSignUp({ email, password, name, city }) {
   email = (email || '').trim().toLowerCase()
   if (!email || !password || !(name || '').trim()) throw new Error('Remplis tous les champs.')
   if (password.length < 6) throw new Error('Le mot de passe doit avoir au moins 6 caractères.')
-  const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { name: name.trim() } } })
+  const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { name: name.trim(), city: (city || '').trim() } } })
   if (error) throw new Error(frError(error.message))
   // Email déjà utilisé : Supabase renvoie un utilisateur sans identité, sans erreur.
   if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) throw new Error('Un compte existe déjà avec cet email.')
@@ -396,7 +400,9 @@ async function remoteSignUp({ email, password, name }) {
 async function remoteSignIn(email, password) {
   const { error } = await supabase.auth.signInWithPassword({ email: (email || '').trim().toLowerCase(), password })
   if (error) throw new Error(frError(error.message))
+  suspendedNotice = false
   await refresh()
+  if (suspendedNotice) throw new Error('Ce compte est suspendu. Contacte l’équipe VibeStore.')
   return me
 }
 async function remoteSignOut() {
@@ -841,4 +847,26 @@ export async function cancelInvite(admin, artistId) {
 export function inviteMessage(artist, email) {
   const url = typeof window !== 'undefined' ? window.location.origin : 'https://vibestore-dist.vercel.app'
   return `Bonjour ${artist.name} 👋\nVibeStore a préparé ta fiche d’artiste. Pour activer ton studio :\n1. Ouvre ${url}/compte\n2. Clique sur « Pas encore de compte ? Inscris-toi »\n3. Utilise exactement cet email : ${email}\n4. Confirme ton email, puis connecte-toi.\nTu y suivras tes écoutes, tes ♥ et tes ventes. À très vite !`
+}
+
+/* ---------- Inscrits : liste et moderation (admin) ---------- */
+export function memberList(d) {
+  const src = d.members?.length ? d.members : d.users
+  return src.map((m) => ({ id: m.id, name: m.name || '—', email: m.email || '', city: m.city || '', role: m.role, blocked: !!m.blocked, blockedReason: m.blockedReason || '', createdAt: m.createdAt }))
+}
+export async function setMemberBlocked(admin, id, blocked, reason = '') {
+  requireAdmin(admin)
+  if (id === admin.id) throw new Error('Tu ne peux pas suspendre ton propre compte.')
+  const target = memberList(db).find((m) => m.id === id)
+  if (!target) throw new Error('Compte introuvable.')
+  if (target.role === 'admin') throw new Error('Un compte équipe ne peut pas être suspendu.')
+  reason = (reason || '').trim().slice(0, 200)
+  if (REMOTE) {
+    must(await supabase.from('profiles').update({ blocked: !!blocked, blocked_reason: blocked ? reason : '' }).eq('id', id).select())
+    await refresh()
+    return
+  }
+  const u = db.users.find((x) => x.id === id)
+  if (u) { u.blocked = !!blocked; u.blockedReason = blocked ? reason : '' }
+  save()
 }

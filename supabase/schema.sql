@@ -196,6 +196,7 @@ declare
   row public.purchases%rowtype;
 begin
   if uid is null then raise exception 'Connecte-toi pour acheter.'; end if;
+  if exists (select 1 from public.profiles where id = uid and blocked) then raise exception 'Ce compte est suspendu.'; end if;
   select * into s from public.settings where id = 1;
   if not s.demo_payments then raise exception 'Le paiement simulé est désactivé.'; end if;
   if not exists (select 1 from jsonb_array_elements(s.payment_methods) m where m->>'id' = p_method and (m->>'enabled')::boolean) then
@@ -421,3 +422,40 @@ alter table public.artist_private add column if not exists distribution text not
 alter table public.artist_private add column if not exists distributor text not null default '';
 alter table public.artist_requests drop constraint if exists artist_requests_kind_check;
 alter table public.artist_requests add constraint artist_requests_kind_check check (kind in ('track','edit','payout','distribution','other'));
+
+-- ============================================================
+-- v0.8 : inscrits (ville) et moderation (suspension de compte)
+-- ============================================================
+alter table public.profiles add column if not exists city text not null default '';
+alter table public.profiles add column if not exists blocked boolean not null default false;
+alter table public.profiles add column if not exists blocked_reason text not null default '';
+
+create or replace function public.handle_new_user() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare
+  inv_artist uuid;
+  r text := 'listener';
+begin
+  select artist_id into inv_artist from public.artist_invites where lower(email) = lower(new.email) limit 1;
+  if inv_artist is not null then r := 'artist'; end if;
+  if lower(new.email) = any (array['gabrielfokou26@gmail.com']) then r := 'admin'; end if;
+
+  insert into public.profiles (id, name, email, role, city)
+  values (new.id, coalesce(nullif(new.raw_user_meta_data->>'name',''), split_part(new.email,'@',1)), new.email, r, left(coalesce(new.raw_user_meta_data->>'city',''), 80));
+
+  if inv_artist is not null then
+    update public.artists set user_id = new.id, account = 'active' where id = inv_artist and user_id is null;
+  end if;
+  return new;
+end $$;
+
+-- Seule l'equipe suspend, et jamais un compte equipe ou artiste (garde-fou).
+create or replace function public.guard_profile_update() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if new.blocked and new.role = 'admin' then raise exception 'Un compte équipe ne peut pas être suspendu.'; end if;
+  return new;
+end $$;
+drop trigger if exists guard_profile_update on public.profiles;
+create trigger guard_profile_update before update on public.profiles
+  for each row execute function public.guard_profile_update();

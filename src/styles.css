@@ -306,3 +306,9 @@ textarea{width:100%;font:inherit;color:inherit;background:var(--surface);border:
 .artisthead{display:flex;gap:16px;align-items:center}
 .avatar.big{width:96px;height:96px}
 .dot.inl{position:static;display:inline-grid;margin-left:6px;vertical-align:middle}
+
+.members{display:flex;flex-direction:column;gap:8px}
+.member{display:flex;gap:12px;align-items:center;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:var(--surface2)}
+.member.blocked{opacity:.75;border-color:#a33}
+.chip.on{background:var(--accent,#8B5CF6);color:#fff}
+.chip.warn{background:#5a1f2a;color:#ffb4c0}

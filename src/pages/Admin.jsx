@@ -268,6 +268,7 @@ function AnnounceForm({ admin }) {
 }
 
 import AdminOverview from './AdminOverview'
+import MembersTab from './AdminMembers'
 import { ArtistSheet, PayoutsTab, RequestsTab } from './AdminArtists'
 
 function exportSales(db) {
@@ -300,7 +301,7 @@ export default function Admin() {
       <h1 className="h1">Administration</h1>
       <p className="muted">Les comptes artistes et leurs titres sont ajoutés uniquement ici, par l’équipe VibeStore. Les artistes ne s’inscrivent pas seuls et ne publient pas eux-mêmes.</p>
       <div className="tabs" role="tablist">
-        {[['apercu', 'Aperçu'], ['artistes', 'Artistes et titres'], ['reversements', 'Reversements'], ['demandes', `Demandes${openRequests(db) ? ` (${openRequests(db)})` : ''}`], ['annonces', 'Annonces'], ['ventes', 'Ventes'], ['reglages', 'Réglages']].map(([k, l]) => (
+        {[['apercu', 'Aperçu'], ['artistes', 'Artistes et titres'], ['inscrits', 'Inscrits'], ['reversements', 'Reversements'], ['demandes', `Demandes${openRequests(db) ? ` (${openRequests(db)})` : ''}`], ['annonces', 'Annonces'], ['ventes', 'Ventes'], ['reglages', 'Réglages']].map(([k, l]) => (
           <button key={k} role="tab" aria-selected={tab === k} className={'tab' + (tab === k ? ' on' : '')} type="button" onClick={() => setTab(k)}>{l}</button>
         ))}
       </div>
@@ -316,6 +317,7 @@ export default function Admin() {
         </>
       )}
 
+      {tab === 'inscrits' && <MembersTab db={db} admin={user} />}
       {tab === 'reversements' && <PayoutsTab onOpen={openSheet} />}
       {tab === 'demandes' && <RequestsTab admin={user} />}
 

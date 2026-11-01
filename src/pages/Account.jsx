@@ -8,7 +8,7 @@ export default function Account() {
   const nav = useNavigate()
   const [pw, setPw] = useState('')
   const [mode, setMode] = useState('in')
-  const [f, setF] = useState({ name: '', email: '', password: '' })
+  const [f, setF] = useState({ name: '', city: '', email: '', password: '' })
   const [err, setErr] = useState('')
   const [info, setInfo] = useState('')
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value })
@@ -74,6 +74,7 @@ export default function Account() {
       ) : (
       <form className="panel form" onSubmit={submit}>
         {mode === 'up' && <label className="field"><span>Nom</span><input id="name" value={f.name} onChange={set('name')} autoComplete="name" /></label>}
+        {mode === 'up' && <label className="field"><span>Ville <small className="muted">(facultatif)</small></span><input id="city" value={f.city} onChange={set('city')} autoComplete="address-level2" /></label>}
         <label className="field"><span>Email</span><input id="email" type="email" value={f.email} onChange={set('email')} autoComplete="email" /></label>
         <label className="field"><span>Mot de passe</span><input id="password" type="password" value={f.password} onChange={set('password')} autoComplete={mode === 'in' ? 'current-password' : 'new-password'} /></label>
         {err && <p className="err" role="alert">{err}</p>}

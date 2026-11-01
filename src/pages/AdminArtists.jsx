@@ -32,7 +32,7 @@ export function ArtistSheet({ admin, artist: a, onClose }) {
   const db = useDb()
   const priv = db.priv[a.id] || {}
   const [f, setF] = useState({ name: a.name, genre: a.genre || '', bio: a.bio || '', city: a.city || '', verified: !!a.verified, status: a.status, links: { instagram: '', tiktok: '', youtube: '', whatsapp: '', spotify: '', apple: '', youtubemusic: '', deezer: '', boomplay: '', audiomack: '', ...(a.links || {}) }, photo: null })
-  const [c, setC] = useState({ commissionPct: priv.commissionPct ?? '', contractStart: priv.contractStart || '', payoutMethod: priv.payoutMethod || 'momo', payoutNumber: priv.payoutNumber || '', distribution: priv.distribution || 'none', distributor: priv.distributor || '' })
+  const [c, setC] = useState({ commissionPct: priv.commissionPct ?? '', contractStart: priv.contractStart || '', payoutMethod: priv.payoutMethod || 'momo', payoutNumber: priv.payoutNumber || '', distribution: priv.distribution || 'none', distributor: priv.distributor || 'Log Music' })
   const [notes, setNotes] = useState(db.notes[a.id] || '')
   const [po, setPo] = useState({ amount: '', method: priv.payoutMethod || 'momo', reference: '', note: '' })
   const [email, setEmail] = useState(db.invites[a.id] || '')
@@ -117,7 +117,7 @@ export function ArtistSheet({ admin, artist: a, onClose }) {
         <label className="field grow"><span>Distribution (autres plateformes)</span>
           <select value={c.distribution} onChange={(e) => setC({ ...c, distribution: e.target.value })}>{DISTRIBUTION.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
         </label>
-        <label className="field grow"><span>Distributeur partenaire</span><input value={c.distributor} onChange={(e) => setC({ ...c, distributor: e.target.value })} placeholder="Nom du distributeur" /></label>
+        <label className="field grow"><span>Distributeur partenaire</span><input value={c.distributor} onChange={(e) => setC({ ...c, distributor: e.target.value })} placeholder="Log Music" /></label>
         <label className="field grow"><span>Numéro ou compte</span><input value={c.payoutNumber} onChange={(e) => setC({ ...c, payoutNumber: e.target.value })} placeholder="6 99 00 00 00" /></label>
         <button className="btn buy" type="button" onClick={run('Contrat enregistré.', () => updateArtistPrivate(admin, a.id, c))}>Enregistrer</button>
       </div>
