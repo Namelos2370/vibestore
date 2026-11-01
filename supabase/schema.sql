@@ -316,3 +316,27 @@ drop policy if exists "videos: écriture admin" on storage.objects;
 create policy "videos: lecture publique" on storage.objects for select using (bucket_id = 'videos');
 create policy "videos: écriture admin" on storage.objects for all
   using (bucket_id = 'videos' and public.is_admin()) with check (bucket_id = 'videos' and public.is_admin());
+
+-- ============================================================
+-- v0.5 : coups de cœur (♥) enregistrés dans le compte
+-- ============================================================
+create table if not exists public.likes (
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  track_id uuid not null references public.tracks(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (user_id, track_id)
+);
+alter table public.likes enable row level security;
+drop policy if exists "likes: lecture des siens" on public.likes;
+drop policy if exists "likes: ajout" on public.likes;
+drop policy if exists "likes: retrait" on public.likes;
+create policy "likes: lecture des siens" on public.likes for select using (user_id = auth.uid());
+create policy "likes: ajout" on public.likes for insert with check (user_id = auth.uid());
+create policy "likes: retrait" on public.likes for delete using (user_id = auth.uid());
+
+-- Compteur public (nombre de ♥ par titre), sans révéler qui a aimé.
+create or replace function public.track_like_counts()
+returns table (track_id uuid, n bigint)
+language sql security definer set search_path = public stable as
+$$ select track_id, count(*) from public.likes group by track_id $$;
+grant execute on function public.track_like_counts() to anon, authenticated;

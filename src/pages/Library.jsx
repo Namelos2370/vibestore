@@ -1,18 +1,17 @@
 import { Link, Navigate, useSearchParams } from 'react-router-dom'
-import { useDb, useUser, catalog, owns, fcfa } from '../lib/store'
+import { useDb, useUser, catalog, owns, fcfa, myLikes } from '../lib/store'
 import { trackAudioUrl } from '../lib/store'
 import { AlbumCard, TrackRow, Empty } from '../components/ui'
-import { useFavs } from '../lib/favs'
 
 export default function Library() {
   const db = useDb()
   const user = useUser()
   const [sp] = useSearchParams()
-  const favs = useFavs()
-  if (!user) return <Navigate to="/compte" replace />
+    if (!user) return <Navigate to="/compte" replace />
   const { albums, tracks } = catalog(db)
   const myTracks = tracks.filter((t) => owns(db, user, { type: 'track', id: t.id }))
-  const favTracks = tracks.filter((t) => favs.includes(t.id))
+  const favs = myLikes(db, user)
+  const favTracks = favs.map((id) => tracks.find((t) => t.id === id)).filter(Boolean)
   const myAlbums = albums.filter((a) => owns(db, user, { type: 'album', id: a.id }))
   const history = db.purchases.filter((p) => p.userId === user.id).sort((a, b) => b.at - a.at)
   const nameOf = (p) => (p.itemType === 'album' ? db.albums.find((a) => a.id === p.itemId)?.title : db.tracks.find((t) => t.id === p.itemId)?.title) || '—'
@@ -24,7 +23,7 @@ export default function Library() {
 
       {favTracks.length > 0 && (
         <section>
-          <h2>Favoris</h2>
+          <h2>{user.role === 'artist' ? 'Titres appréciés' : 'Favoris'}</h2>
           <ul className="tracks">{favTracks.map((t) => <TrackRow key={t.id} t={t} />)}</ul>
         </section>
       )}

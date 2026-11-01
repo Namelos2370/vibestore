@@ -1,5 +1,5 @@
 import { Link, Navigate } from 'react-router-dom'
-import { useDb, useUser, myArtist, currentCommission, fcfa } from '../lib/store'
+import { useDb, useUser, myArtist, currentCommission, fcfa, likeCount } from '../lib/store'
 import { Empty } from '../components/ui'
 
 // Studio artiste en lecture seule : le compte et les titres sont ajoutés par VibeStore.
@@ -17,6 +17,7 @@ export default function Studio() {
   const sales = db.purchases.filter((p) => p.artistId === artist.id)
   const gross = sales.reduce((s, p) => s + p.amount, 0)
   const net = sales.reduce((s, p) => s + p.amount * (1 - p.commissionPct / 100), 0)
+  const likes = tracks.reduce((s, t) => s + likeCount(db, t.id), 0)
   const plays = tracks.reduce((s, t) => s + (t.plays || 0), 0)
   const salesOf = (t) => sales.filter((p) => p.itemType === 'track' && p.itemId === t.id).length
 
@@ -34,6 +35,7 @@ export default function Studio() {
 
       <div className="stats">
         <div className="stat"><span>Écoutes</span><b>{plays}</b></div>
+        <div className="stat"><span>♥ Appréciations</span><b>{likes}</b></div>
         <div className="stat"><span>Ventes</span><b>{sales.length}</b></div>
         <div className="stat"><span>Chiffre d’affaires</span><b>{fcfa(gross)}</b></div>
         <div className="stat hi"><span>Ta part ({100 - pct} %)</span><b>{fcfa(net)}</b></div>
@@ -46,7 +48,7 @@ export default function Studio() {
           <ul className="tracks">
             {tracks.map((t) => (
               <li key={t.id} className="track simple">
-                <div className="tmeta"><b>{t.title}</b><span>{fcfa(t.price)} · {t.plays || 0} écoutes · {salesOf(t)} ventes</span></div>
+                <div className="tmeta"><b>{t.title}</b><span>{fcfa(t.price)} · {t.plays || 0} écoutes · ♥ {likeCount(db, t.id)} · {salesOf(t)} ventes</span></div>
                 <span className="badge ok">En ligne</span>
               </li>
             ))}

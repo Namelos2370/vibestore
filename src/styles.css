@@ -250,3 +250,5 @@ nav a.bell { position: relative; display: inline-flex; align-items: center; padd
 .modal { position: absolute; inset: 0; z-index: 4; background: color-mix(in srgb, var(--bg) 96%, transparent); display: grid; align-content: center; gap: 12px; padding: 16px; }
 
 .lyrics .lines { position: relative; }
+.slidetools .iconbtn{position:relative}
+.cnt{display:block;font-size:.65rem;line-height:1;margin-top:2px;min-height:.65rem}

@@ -1,6 +1,7 @@
+import { useEffect } from 'react'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useApp } from '../lib/AppContext'
-import { useDb, useUser, useUnread, signOut, trialDaysLeft, mmss, PREVIEW_SECONDS, fcfa } from '../lib/store'
+import { autoPush, useDb, useUser, useUnread, signOut, trialDaysLeft, mmss, PREVIEW_SECONDS, fcfa } from '../lib/store'
 import { Cover } from './ui'
 
 function Player() {
@@ -39,6 +40,7 @@ function Player() {
 }
 
 export default function Layout() {
+  useEffect(() => { autoPush() }, [])
   const user = useUser()
   const db = useDb()
   const { cart } = useApp()

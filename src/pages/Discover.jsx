@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useApp } from '../lib/AppContext'
-import { useDb, useUser, catalog, listenRight, mmss, PREVIEW_SECONDS } from '../lib/store'
+import { useDb, useUser, catalog, listenRight, mmss, PREVIEW_SECONDS, myLikes, likeCount, toggleLike } from '../lib/store'
 import { AddButton, Cover, Empty, Clip } from '../components/ui'
 import { parseLyrics, currentLine } from '../lib/lyrics'
-import { toggleFav, useFavs } from '../lib/favs'
 
 function Lyrics({ t, on, pos, onClose }) {
   const { lines, timed } = useMemo(() => parseLyrics(t.lyrics), [t.lyrics])
@@ -32,7 +31,10 @@ export default function Discover() {
   const { track, playing, pos, mode, play, toggle, ended } = useApp()
   const [lyr, setLyr] = useState(null)
   const [clip, setClip] = useState(null)
-  const favs = useFavs()
+  const favs = myLikes(db, user)
+  async function like(t) {
+    try { if (!(await toggleLike(t.id))) { setToast('Connecte-toi pour garder tes coups de cœur dans Ma musique.'); setTimeout(() => nav('/compte'), 1400) } } catch (e) { setToast(e.message) }
+  }
   const [toast, setToast] = useState('')
   const { tracks } = catalog(db)
   const items = useMemo(() => [...tracks].sort((a, b) => b.plays - a.plays || a.title.localeCompare(b.title)), [tracks.length]) // eslint-disable-line
@@ -118,7 +120,7 @@ export default function Discover() {
             <div className="slidetools">
               {t.lyrics && <button className="iconbtn" type="button" onClick={() => { setLyr(t.id); if (!on || !playing) play(t) }} aria-label="Paroles">♪</button>}
               {t.album.videoUrl && <button className="iconbtn" type="button" onClick={() => { if (on && playing) toggle(); setClip(t.id) }} aria-label="Voir le clip">🎬</button>}
-              <button className={'iconbtn' + (favs.includes(t.id) ? ' on' : '')} type="button" onClick={() => toggleFav(t.id)} aria-pressed={favs.includes(t.id)} aria-label={favs.includes(t.id) ? 'Retirer des favoris' : 'Ajouter aux favoris'}>{favs.includes(t.id) ? '♥' : '♡'}</button>
+              <button className={'iconbtn' + (favs.includes(t.id) ? ' on' : '')} type="button" onClick={() => like(t)} aria-pressed={favs.includes(t.id)} aria-label={favs.includes(t.id) ? 'Retirer des favoris' : 'Ajouter aux favoris'}>{favs.includes(t.id) ? '♥' : '♡'}<small className="cnt">{likeCount(db, t.id) || ''}</small></button>
               <button className="iconbtn" type="button" onClick={() => share(t)} aria-label="Partager">↗</button>
             </div>
             {i === 0 && items.length > 1 && <span className="swipe" aria-hidden="true">Fais défiler ↑</span>}

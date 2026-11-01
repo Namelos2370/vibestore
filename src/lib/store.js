@@ -49,7 +49,7 @@ function seed() {
 
 function emptyDb() {
   return {
-    users: [], artists: [], albums: [], tracks: [], purchases: [], notifications: [],
+    users: [], artists: [], albums: [], tracks: [], purchases: [], notifications: [], likes: [], likeCounts: {},
     settings: {
       commissionPct: 20, promoCommissionPct: 15, promoMonths: 6, launchAt: Date.now(), minPrice: MIN_PRICE,
       paymentMethods: [
@@ -71,6 +71,8 @@ function load() {
 
 let db = REMOTE ? emptyDb() : load()
 if (!db.notifications) db.notifications = []
+if (!db.likes) db.likes = []
+if (!db.likeCounts) db.likeCounts = {}
 let me = null // utilisateur connecté (mode Supabase)
 let version = 0
 const listeners = new Set()
@@ -316,7 +318,7 @@ export function refresh() {
   refreshing = (async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      const [st, ar, re, tr, pu, pr, no] = await Promise.all([
+      const [st, ar, re, tr, pu, pr, no, lk, lc] = await Promise.all([
         supabase.from('settings').select('*').eq('id', 1).maybeSingle(),
         supabase.from('artists').select('*').order('created_at'),
         supabase.from('releases').select('*').order('created_at'),
@@ -324,6 +326,8 @@ export function refresh() {
         session ? supabase.from('purchases').select('*').eq('status', 'paid').order('created_at') : Promise.resolve({ data: [] }),
         session ? supabase.from('profiles').select('*').eq('id', session.user.id).maybeSingle() : Promise.resolve({ data: null }),
         supabase.from('notifications').select('*').order('created_at', { ascending: false }).limit(50),
+        session ? supabase.from('likes').select('track_id').order('created_at', { ascending: false }) : Promise.resolve({ data: [] }),
+        supabase.rpc('track_like_counts'),
       ])
       const next = emptyDb()
       if (st.data) next.settings = mapSettings(st.data)
@@ -332,6 +336,8 @@ export function refresh() {
       next.tracks = (tr.data || []).map(mapTrack)
       next.purchases = (pu.data || []).map(mapPurchase)
       next.notifications = (no.data || []).map((n) => ({ id: n.id, title: n.title, body: n.body, url: n.url, at: ms(n.created_at) }))
+      next.likes = (lk.data || []).map((r) => ({ userId: session.user.id, trackId: r.track_id }))
+      next.likeCounts = Object.fromEntries((lc.data || []).map((r) => [r.track_id, Number(r.n)]))
       me = pr.data ? mapProfile(pr.data, session.user.email) : null
       next.users = me ? [me] : []
       db = next
@@ -634,4 +640,40 @@ export async function enablePush() {
     { onConflict: 'endpoint', ignoreDuplicates: true })
   if (error) throw new Error(frError(error.message))
   return true
+}
+
+/* ---------- Coups de cœur (♥) ---------- */
+// Réservés aux comptes connectés : l'auditeur les retrouve dans « Ma musique », l'artiste voit le compteur sur ses titres.
+export function myLikes(d, user) { return user ? d.likes.filter((l) => l.userId === user.id).map((l) => l.trackId) : [] }
+export function likeCount(d, trackId) { return d.likeCounts[trackId] || 0 }
+export async function toggleLike(trackId) {
+  const user = REMOTE ? me : db.users.find((u) => u.id === sessionId())
+  if (!user) return false
+  const had = db.likes.some((l) => l.userId === user.id && l.trackId === trackId)
+  const n = db.likeCounts[trackId] || 0
+  if (had) { db.likes = db.likes.filter((l) => !(l.userId === user.id && l.trackId === trackId)); db.likeCounts = { ...db.likeCounts, [trackId]: Math.max(0, n - 1) } }
+  else { db.likes = [{ userId: user.id, trackId }, ...db.likes]; db.likeCounts = { ...db.likeCounts, [trackId]: n + 1 } }
+  save()
+  if (REMOTE) {
+    const r = had
+      ? await supabase.from('likes').delete().eq('user_id', user.id).eq('track_id', trackId)
+      : await supabase.from('likes').insert({ user_id: user.id, track_id: trackId })
+    if (r.error) { await refresh(); throw new Error(frError(r.error.message)) }
+  }
+  return true
+}
+
+/** Activation par défaut : au premier geste de la personne (obligatoire sur mobile), on demande l'autorisation
+ *  puis on enregistre l'appareil. Si c'est déjà accordé, on vérifie juste l'abonnement. */
+export function autoPush() {
+  const st = pushSupport()
+  if (st !== 'default' && st !== 'granted') return
+  let done = false
+  const go = () => {
+    if (done) return
+    done = true
+    window.removeEventListener('pointerdown', go)
+    setTimeout(() => { enablePush().catch(() => {}) }, st === 'granted' ? 0 : 2500)
+  }
+  window.addEventListener('pointerdown', go, { once: true })
 }
