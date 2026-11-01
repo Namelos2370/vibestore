@@ -32,5 +32,5 @@ npm run dev
 3. Les extraits de 30 s côté serveur (le fichier complet ne doit jamais être servi avant achat).
 
 ## Paiement réel Mobile Money (GuTouch / TouchPay)
-Variables à définir sur Vercel (jamais dans le dépôt) : `GT_AGENCE`, `GT_LOGIN_AGENT`, `GT_PASSWORD_AGENT`, `GT_PARTNER_ID`, `GT_AUTH_USER`, `GT_AUTH_PASS`, `SUPABASE_SERVICE_ROLE_KEY`.
+Variables à définir sur Vercel (jamais dans le dépôt) : `GT_AGENCE`, `GT_LOGIN_AGENT`, `GT_PASSWORD_AGENT`, `GT_PARTNER_ID`, `GT_AUTH_USER`, `GT_AUTH_PASS` (les noms `INTOUCH_AGENCE`, `INTOUCH_LOGIN_API`, `INTOUCH_PASSWORD_API`, `INTOUCH_PARTNER_ID`, `INTOUCH_AUTH_USER`, `INTOUCH_AUTH_PASS` marchent aussi), et `SUPABASE_SERVICE_ROLE_KEY`.
 Puis dans l'admin : Réglages > « Activer le paiement réel ». Routes : `/api/pay`, `/api/pay-status`, `/api/pay-callback`.

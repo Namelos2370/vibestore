@@ -3,6 +3,8 @@
 //   GT_AGENCE, GT_LOGIN_AGENT, GT_PASSWORD_AGENT, GT_PARTNER_ID, GT_AUTH_USER, GT_AUTH_PASS
 //   SUPABASE_SERVICE_ROLE_KEY ; facultatives : SUPABASE_URL, SUPABASE_ANON_KEY, PUBLIC_URL
 import crypto from 'node:crypto'
+import https from 'node:https'
+import http from 'node:http'
 
 export const SB_URL = process.env.SUPABASE_URL || 'https://vijpixbrxmnslkaiumxm.supabase.co'
 export const SB_ANON = process.env.SUPABASE_ANON_KEY || 'sb_publishable_W_jvIbb_vRZxd44hZw3h9w_EolmVPJm'
@@ -10,9 +12,11 @@ const GT = 'https://apidist.gutouch.net/apidist/sec'
 
 export const SERVICE_CODES = { momo: 'PAIEMENTMARCHAND_MTN_CM', om: 'CM_PAIEMENTMARCHAND_OM_TP' }
 
+// Les noms INTOUCH_* (kit TouchPay) sont acceptés en plus des noms GT_*.
+const pick = (a, b) => process.env[a] || process.env[b]
 export const env = () => ({
-  agence: process.env.GT_AGENCE, login: process.env.GT_LOGIN_AGENT, password: process.env.GT_PASSWORD_AGENT,
-  partner: process.env.GT_PARTNER_ID, authUser: process.env.GT_AUTH_USER, authPass: process.env.GT_AUTH_PASS,
+  agence: pick('GT_AGENCE', 'INTOUCH_AGENCE'), login: pick('GT_LOGIN_AGENT', 'INTOUCH_LOGIN_API'), password: pick('GT_PASSWORD_AGENT', 'INTOUCH_PASSWORD_API'),
+  partner: pick('GT_PARTNER_ID', 'INTOUCH_PARTNER_ID'), authUser: pick('GT_AUTH_USER', 'INTOUCH_AUTH_USER'), authPass: pick('GT_AUTH_PASS', 'INTOUCH_AUTH_PASS'),
   service: process.env.SUPABASE_SERVICE_ROLE_KEY,
 })
 export const configured = (e = env()) => !!(e.agence && e.login && e.password && e.partner && e.authUser && e.authPass && e.service)
@@ -29,6 +33,28 @@ export async function userFromToken(req) {
   return u && u.id ? u : null
 }
 
+/** Requête HTTP(S) en IPv4 forcé (l'API GuTouch expire en IPv6, constaté sur Hostinger). */
+function rq(url, { method = 'GET', headers = {}, body } = {}) {
+  return new Promise((resolve, reject) => {
+    const u = new URL(url)
+    const lib = u.protocol === 'http:' ? http : https
+    const h = { ...headers }
+    if (body != null) h['Content-Length'] = Buffer.byteLength(body)
+    const req = lib.request({ protocol: u.protocol, hostname: u.hostname, port: u.port || undefined, path: u.pathname + u.search, method, headers: h, family: 4, timeout: 25000 }, (res) => {
+      const chunks = []
+      res.on('data', (c) => chunks.push(c))
+      res.on('end', () => {
+        const text = Buffer.concat(chunks).toString('utf8')
+        resolve({ status: res.statusCode, ok: res.statusCode >= 200 && res.statusCode < 300, headers: { get: (k) => { const v = res.headers[String(k).toLowerCase()]; return Array.isArray(v) ? v[0] : v || null } }, text: async () => text })
+      })
+    })
+    req.on('timeout', () => req.destroy(new Error('Délai dépassé')))
+    req.on('error', reject)
+    if (body != null) req.write(body)
+    req.end()
+  })
+}
+
 const md5 = (s) => crypto.createHash('md5').update(s).digest('hex')
 function parseChallenge(h) {
   const out = {}
@@ -37,7 +63,7 @@ function parseChallenge(h) {
 }
 /** Requête avec authentification Digest (le serveur répond d'abord 401 avec un défi). */
 export async function digestFetch(url, { method = 'GET', body, headers = {} }, user, pass) {
-  const first = await fetch(url, { method, body, headers })
+  const first = await rq(url, { method, body, headers })
   if (first.status !== 401) return first
   const c = parseChallenge(first.headers.get('www-authenticate'))
   if (!c.nonce) return first
@@ -53,7 +79,7 @@ export async function digestFetch(url, { method = 'GET', body, headers = {} }, u
   if (c.opaque) auth += `, opaque="${c.opaque}"`
   if (qop) auth += `, qop=${qop}, nc=${nc}, cnonce="${cnonce}"`
   if (c.algorithm) auth += `, algorithm=${c.algorithm}`
-  return fetch(url, { method, body, headers: { ...headers, Authorization: auth } })
+  return rq(url, { method, body, headers: { ...headers, Authorization: auth } })
 }
 
 /** Lecture tolérante du statut renvoyé par GuTouch : 'paid' | 'failed' | 'pending'. */
@@ -70,7 +96,7 @@ export function readStatus(j) {
 /** Demande à GuTouch l'état réel d'une transaction (on ne se fie jamais au contenu du callback). */
 export async function checkStatus(ref) {
   const e = env()
-  const r = await fetch(`${GT}/${e.agence}/check_status`, {
+  const r = await rq(`${GT}/${e.agence}/check_status`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: 'Basic ' + Buffer.from(`${e.authUser}:${e.authPass}`).toString('base64') },
     body: JSON.stringify({ partner_id: e.partner, partner_transaction_id: ref, login_api: e.login, password_api: e.password }),
