@@ -915,13 +915,8 @@ export async function changeArtistEmail(admin, artistId, email) {
     return
   }
   if (a.account !== 'active') return updateInviteEmail(admin, artistId, e)
-  const { data: { session } } = await supabase.auth.getSession()
-  let r
-  try {
-    r = await fetch('/api/artist-email', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify({ artistId, email: e }) })
-  } catch { throw new Error('Serveur injoignable. Réessaie dans un instant.') }
-  const j = await r.json().catch(() => ({}))
-  if (!r.ok) throw new Error(j.error || 'Changement impossible.')
+  const r = await supabase.rpc('admin_set_artist_email', { p_artist: artistId, p_email: e })
+  if (r.error) throw new Error(/duplicate|unique/i.test(r.error.message) ? 'Cet email est déjà utilisé par un autre compte.' : frError(r.error.message))
   await refresh()
 }
 

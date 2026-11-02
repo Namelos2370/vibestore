@@ -561,3 +561,23 @@ create or replace function public.promo_view(p_id uuid) returns void language sq
   update public.promos set views = views + 1 where id = p_id and active;
 $$;
 grant execute on function public.promo_view(uuid) to anon, authenticated;
+
+-- ============================================================
+-- v1.3 : changement d'email d'un artiste ayant deja un compte (sans cle serveur)
+-- ============================================================
+create or replace function public.admin_set_artist_email(p_artist uuid, p_email text) returns void
+language plpgsql security definer set search_path = public, auth as $$
+declare v_email text := lower(trim(p_email)); v_user uuid;
+begin
+  if not public.is_admin() then raise exception 'Réservé à l’équipe VibeStore.'; end if;
+  if v_email !~ '^[^@\s]+@[^@\s]+\.[^@\s]+$' then raise exception 'Email invalide.'; end if;
+  select user_id into v_user from public.artists where id = p_artist;
+  if v_user is null then raise exception 'Cet artiste n’a pas encore de compte : change son email d’invitation.'; end if;
+  if exists (select 1 from auth.users where lower(email) = v_email and id <> v_user) then raise exception 'Cet email est déjà utilisé par un autre compte.'; end if;
+  update auth.users set email = v_email, email_confirmed_at = coalesce(email_confirmed_at, now()), updated_at = now() where id = v_user;
+  update auth.identities set identity_data = jsonb_set(coalesce(identity_data, '{}'::jsonb), '{email}', to_jsonb(v_email)) where user_id = v_user and provider = 'email';
+  update public.profiles set email = v_email where id = v_user;
+  insert into public.artist_invites(artist_id, email) values (p_artist, v_email) on conflict (artist_id) do update set email = excluded.email;
+end $$;
+revoke execute on function public.admin_set_artist_email(uuid, text) from public, anon;
+grant execute on function public.admin_set_artist_email(uuid, text) to authenticated;
