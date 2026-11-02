@@ -294,6 +294,37 @@ function exportSales(db) {
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'ventes-vibestore.csv'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000)
 }
 
+
+const ADMIN_GROUPS = [
+  { id: 'pilotage', label: 'Aperçu', tabs: [['apercu', 'Aperçu']] },
+  { id: 'catalogue', label: 'Catalogue', tabs: [['artistes', 'Artistes'], ['sons', 'Sons'], ['clips', 'Clips']] },
+  { id: 'communaute', label: 'Membres', tabs: [['inscrits', 'Inscrits'], ['demandes', 'Demandes'], ['annonces', 'Annonces']] },
+  { id: 'finances', label: 'Finances', tabs: [['ventes', 'Ventes'], ['reversements', 'Reversements']] },
+  { id: 'reglages', label: 'Réglages', tabs: [['reglages', 'Réglages']] },
+]
+// Navigation à deux niveaux : un groupe, puis ses pages. Reste sur une ligne sur téléphone.
+function AdminNav({ tab, setTab, pending }) {
+  const group = ADMIN_GROUPS.find((g) => g.tabs.some(([k]) => k === tab)) || ADMIN_GROUPS[0]
+  return (
+    <nav className="adminnav" aria-label="Sections de l’administration">
+      <div className="agroups" role="tablist">
+        {ADMIN_GROUPS.map((g) => (
+          <button key={g.id} type="button" role="tab" aria-selected={g.id === group.id} className={'agroup' + (g.id === group.id ? ' on' : '')} onClick={() => setTab(g.tabs[0][0])}>
+            {g.label}{g.id === 'communaute' && pending > 0 && <i className="dot" aria-label={`${pending} demande(s)`}>{pending}</i>}
+          </button>
+        ))}
+      </div>
+      {group.tabs.length > 1 && (
+        <div className="asubs" role="tablist">
+          {group.tabs.map(([k, l]) => (
+            <button key={k} type="button" role="tab" aria-selected={tab === k} className={'asub' + (tab === k ? ' on' : '')} onClick={() => setTab(k)}>{l}{k === 'demandes' && pending > 0 ? ` (${pending})` : ''}</button>
+          ))}
+        </div>
+      )}
+    </nav>
+  )
+}
+
 export default function Admin() {
   const db = useDb()
   const user = useUser()
@@ -315,11 +346,7 @@ export default function Admin() {
       <span className="eyebrow">Tableau de bord VibeStore</span>
       <h1 className="h1">Administration</h1>
       <p className="muted">Les comptes artistes et leurs titres sont ajoutés uniquement ici, par l’équipe VibeStore. Les artistes ne s’inscrivent pas seuls et ne publient pas eux-mêmes.</p>
-      <div className="tabs" role="tablist">
-        {[['apercu', 'Aperçu'], ['artistes', 'Artistes'], ['sons', 'Sons'], ['clips', 'Clips'], ['inscrits', 'Inscrits'], ['reversements', 'Reversements'], ['demandes', `Demandes${openRequests(db) ? ` (${openRequests(db)})` : ''}`], ['annonces', 'Annonces'], ['ventes', 'Ventes'], ['reglages', 'Réglages']].map(([k, l]) => (
-          <button key={k} role="tab" aria-selected={tab === k} className={'tab' + (tab === k ? ' on' : '')} type="button" onClick={() => setTab(k)}>{l}</button>
-        ))}
-      </div>
+      <AdminNav tab={tab} setTab={setTab} pending={openRequests(db)} />
 
       {tab === 'apercu' && <AdminOverview db={db} go={setTab} />}
 
