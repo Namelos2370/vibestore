@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Navigate } from 'react-router-dom'
-import { isClip, purchaseMedia, useDb, useUser, createArtist, createRelease, updateArtist, updateRelease, updateTrack, deleteArtist, deleteRelease, deleteTrack, updateSettings, togglePayment, currentCommission, fcfa, MIN_PRICE, openRequests, purchasesOn, livePayments } from '../lib/store'
+import { isClip, purchaseMedia, useDb, useUser, createArtist, createRelease, updateArtist, updateRelease, updateTrack, deleteArtist, deleteRelease, deleteTrack, createPromo, setPromoActive, deletePromo, updateSettings, togglePayment, currentCommission, fcfa, MIN_PRICE, openRequests, purchasesOn, livePayments } from '../lib/store'
 import { Empty } from '../components/ui'
 import LyricsEditor from '../components/LyricsEditor'
 import { trackAudioUrl, announce } from '../lib/store'
@@ -295,9 +295,54 @@ function exportSales(db) {
 }
 
 
+function PromoManager({ admin, db }) {
+  const [f, setF] = useState({ title: '', brand: 'Blue Energy', videoUrl: '', ctaLabel: '', ctaUrl: '' })
+  const [file, setFile] = useState(null)
+  const [err, setErr] = useState('')
+  const [ok, setOk] = useState('')
+  const [busy, setBusy] = useState(false)
+  const set = (k) => (e) => setF({ ...f, [k]: e.target.value })
+  async function submit(e) {
+    e.preventDefault(); setErr(''); setOk(''); setBusy(true)
+    try { await createPromo(admin, { ...f, videoFile: file }); setF({ ...f, title: '', videoUrl: '', ctaLabel: '', ctaUrl: '' }); setFile(null); setOk('Publicité ajoutée. Elle apparaît dans Découvrir et dans Clips.') } catch (x) { setErr(x.message) }
+    setBusy(false)
+  }
+  return (
+    <>
+      <form className="panel form" onSubmit={submit}>
+        <h2>Ajouter une publicité</h2>
+        <p className="muted small">Vidéo promotionnelle d’une marque partenaire (par exemple Blue Energy). Rien à vendre : elle s’affiche, étiquetée « Publicité », toutes les quatre vidéos environ dans Découvrir et dans Clips.</p>
+        <label className="field"><span>Titre</span><input id="ptitle" value={f.title} onChange={set('title')} placeholder="Ex. Blue Energy : nouvelle collection" /></label>
+        <label className="field"><span>Marque</span><input id="pbrand" value={f.brand} onChange={set('brand')} /></label>
+        <label className="field"><span>Lien YouTube de la vidéo</span><input id="pvideo" type="url" value={f.videoUrl} onChange={set('videoUrl')} placeholder="https://youtu.be/…" /></label>
+        <label className="field"><span>… ou fichier vidéo MP4 (50 Mo max){file ? ` : ${file.name}` : ''}</span><input id="pfile" type="file" accept="video/mp4,video/webm,video/quicktime" onChange={(e) => setFile(e.target.files[0] || null)} /></label>
+        <div className="row wrap">
+          <label className="field grow"><span>Bouton (facultatif)</span><input id="pcta" value={f.ctaLabel} onChange={set('ctaLabel')} placeholder="Découvrir la boutique" /></label>
+          <label className="field grow2"><span>Lien du bouton</span><input id="pcturl" type="url" value={f.ctaUrl} onChange={set('ctaUrl')} placeholder="https://…" /></label>
+        </div>
+        {err && <p className="err" role="alert">{err}</p>}
+        {ok && <p className="ok" role="status">{ok}</p>}
+        <button className="btn buy" type="submit" disabled={busy}>{busy ? 'Envoi en cours…' : 'Publier la publicité'}</button>
+      </form>
+      <section>
+        <h2>Publicités ({(db.promos || []).length})</h2>
+        {(db.promos || []).length ? (
+          <ul className="tracks">{db.promos.map((p) => (
+            <li key={p.id} className="track simple">
+              <div className="tmeta grow"><b>{p.title}</b><span>{p.brand} · {p.views} vue(s) · {p.active ? 'Diffusée' : 'En pause'}</span></div>
+              <button className="btn small ghost" type="button" onClick={() => setPromoActive(admin, p.id, !p.active)}>{p.active ? 'Mettre en pause' : 'Diffuser'}</button>
+              <button className="btn small ghost danger" type="button" onClick={() => window.confirm('Supprimer cette publicité ?') && deletePromo(admin, p.id)}>Supprimer</button>
+            </li>
+          ))}</ul>
+        ) : <Empty>Aucune publicité pour le moment.</Empty>}
+      </section>
+    </>
+  )
+}
+
 const ADMIN_GROUPS = [
   { id: 'pilotage', label: 'Aperçu', tabs: [['apercu', 'Aperçu']] },
-  { id: 'catalogue', label: 'Catalogue', tabs: [['artistes', 'Artistes'], ['sons', 'Sons'], ['clips', 'Clips']] },
+  { id: 'catalogue', label: 'Catalogue', tabs: [['artistes', 'Artistes'], ['sons', 'Sons'], ['clips', 'Clips'], ['promos', 'Publicités']] },
   { id: 'communaute', label: 'Membres', tabs: [['inscrits', 'Inscrits'], ['demandes', 'Demandes'], ['annonces', 'Annonces']] },
   { id: 'finances', label: 'Finances', tabs: [['ventes', 'Ventes'], ['reversements', 'Reversements']] },
   { id: 'reglages', label: 'Réglages', tabs: [['reglages', 'Réglages']] },
@@ -357,6 +402,8 @@ export default function Admin() {
           <ArtistForm admin={user} />
         </>
       )}
+
+      {tab === 'promos' && <PromoManager admin={user} db={db} />}
 
       {tab === 'sons' && (
         <>

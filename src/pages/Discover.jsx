@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useApp } from '../lib/AppContext'
-import { useDb, useUser, catalog, listenRight, mmss, PREVIEW_SECONDS, myLikes, likeCount, toggleLike } from '../lib/store'
-import { AddButton, Cover, Empty, Clip } from '../components/ui'
+import { useDb, useUser, catalog, listenRight, activePromos, trackPromoView, mmss, PREVIEW_SECONDS, myLikes, likeCount, toggleLike } from '../lib/store'
+import { AddButton, Cover, Empty, Clip, PromoMedia, PromoTag, PromoCta } from '../components/ui'
 import { parseLyrics, currentLine } from '../lib/lyrics'
 import { Icon, Verified } from '../components/Icon'
 
@@ -46,29 +46,39 @@ export default function Discover() {
   const [toast, setToast] = useState('')
   const { sounds: tracks } = catalog(db)
   const items = useMemo(() => [...tracks].sort((a, b) => b.plays - a.plays || a.title.localeCompare(b.title)), [tracks.length]) // eslint-disable-line
+  const promos = activePromos(db)
+  const slides = useMemo(() => {
+    if (!promos.length) return items.map((t) => ({ t }))
+    const out = []; let k = 0
+    items.forEach((t, i) => { out.push({ t }); if ((i + 1) % 4 === 0 && i < items.length - 1) out.push({ promo: promos[k++ % promos.length] }) })
+    if (items.length > 1 && items.length < 4) out.push({ promo: promos[0] })
+    return out
+  }, [items, promos.map((p) => p.id).join(',')]) // eslint-disable-line
   const feedRef = useRef(null)
   useEffect(() => { document.body.classList.add('immersive'); return () => document.body.classList.remove('immersive') }, [])
   const [active, setActive] = useState(0)
-  const live = useRef({ track, play })
-  live.current = { track, play }
+  const live = useRef({ track, play, playing, toggle })
+  live.current = { track, play, playing, toggle }
 
   useEffect(() => {
     const root = feedRef.current
-    if (!root || !items.length) return
+    if (!root || !slides.length) return
     const io = new IntersectionObserver((entries) => {
       entries.forEach((e) => { if (e.isIntersecting) setActive(Number(e.target.dataset.i)) })
     }, { root, threshold: 0.7 })
     root.querySelectorAll('[data-i]').forEach((el) => io.observe(el))
     return () => io.disconnect()
-  }, [items.length])
+  }, [slides.length])
 
   // Lancement automatique du titre affiché (si le navigateur l'autorise après un premier geste).
   useEffect(() => {
-    const t = items[active]
-    if (!t) return
+    const cur = slides[active]
+    if (!cur) return
+    if (cur.promo) { trackPromoView(cur.promo.id); if (live.current.playing) live.current.toggle(); return }
+    const t = cur.t
     if (listenRight(db, user, t) === 'expired') return
     if (!live.current.track || live.current.track.id !== t.id) live.current.play(t)
-  }, [active, items, user]) // eslint-disable-line
+  }, [active, slides, user]) // eslint-disable-line
 
   // Fin d'un titre complet : on passe au suivant, comme dans un flux.
   const lastEnded = useRef(ended)
@@ -76,7 +86,7 @@ export default function Discover() {
     if (ended === lastEnded.current) return
     lastEnded.current = ended
     const root = feedRef.current
-    if (root && active < items.length - 1) root.scrollTo({ top: (active + 1) * root.clientHeight, behavior: 'smooth' })
+    if (root && active < slides.length - 1) root.scrollTo({ top: (active + 1) * root.clientHeight, behavior: 'smooth' })
   }, [ended]) // eslint-disable-line
 
   async function share(t) {
@@ -95,7 +105,21 @@ export default function Discover() {
   return (
     <div className="feedwrap">
     <div className="feed" ref={feedRef} aria-label="Découvrir de la musique">
-      {items.map((t, i) => {
+      {slides.map((sl, i) => {
+        if (sl.promo) {
+          const p = sl.promo
+          return (
+            <section key={'p' + p.id + i} data-i={i} className="slide promoslide" aria-roledescription="publicité">
+              <div className="promowrap">
+                <PromoTag p={p} />
+                {Math.abs(active - i) <= 1 && <PromoMedia url={p.videoUrl} onPlay={() => trackPromoView(p.id)} />}
+                <h2>{p.title}</h2>
+                <PromoCta p={p} />
+              </div>
+            </section>
+          )
+        }
+        const t = sl.t
         const on = track && track.id === t.id
         const right = listenRight(db, user, t)
         const total = on && mode === 'full' ? Math.max(t.duration, 1) : PREVIEW_SECONDS

@@ -537,3 +537,27 @@ revoke execute on function public.finalize_order(text, boolean) from public, ano
 alter table public.tracks add column if not exists media text not null default 'sound' check (media in ('sound','clip'));
 -- les titres deja envoyes sous forme de video deviennent des clips
 update public.tracks set media = 'clip' where media = 'sound' and audio_path ~* '\.(mp4|m4v|mov|webm)$';
+
+-- ============================================================
+-- v1.2 : promos (publicites de marque, ex. Blue Energy) - rien a vendre
+-- ============================================================
+create table if not exists public.promos (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  brand text not null default 'Blue Energy',
+  video_url text not null,
+  cta_label text,
+  cta_url text,
+  active boolean not null default true,
+  views integer not null default 0,
+  created_at timestamptz not null default now()
+);
+alter table public.promos enable row level security;
+drop policy if exists "promos: lecture publique" on public.promos;
+drop policy if exists "promos: admin" on public.promos;
+create policy "promos: lecture publique" on public.promos for select using (active or public.is_admin());
+create policy "promos: admin" on public.promos for all using (public.is_admin()) with check (public.is_admin());
+create or replace function public.promo_view(p_id uuid) returns void language sql security definer set search_path = public as $$
+  update public.promos set views = views + 1 where id = p_id and active;
+$$;
+grant execute on function public.promo_view(uuid) to anon, authenticated;

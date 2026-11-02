@@ -49,7 +49,7 @@ function seed() {
 
 function emptyDb() {
   return {
-    users: [], artists: [], albums: [], tracks: [], purchases: [], notifications: [], likes: [], likeCounts: {}, members: [], priv: {}, notes: {}, invites: {}, payouts: [], requests: [],
+    users: [], artists: [], albums: [], tracks: [], purchases: [], notifications: [], likes: [], likeCounts: {}, members: [], priv: {}, notes: {}, invites: {}, payouts: [], requests: [], promos: [],
     settings: {
       commissionPct: 20, promoCommissionPct: 15, promoMonths: 6, launchAt: Date.now(), minPrice: MIN_PRICE,
       paymentMethods: [
@@ -78,6 +78,7 @@ if (!db.notes) db.notes = {}
 if (!db.invites) db.invites = {}
 if (!db.payouts) db.payouts = []
 if (!db.requests) db.requests = []
+if (!db.promos) db.promos = []
 let me = null // utilisateur connecté (mode Supabase)
 let version = 0
 const listeners = new Set()
@@ -350,7 +351,7 @@ export function refresh() {
         await supabase.from('likes').upsert(g.map((id) => ({ user_id: session.user.id, track_id: id })), { onConflict: 'user_id,track_id', ignoreDuplicates: true })
         setGuestLikes([])
       }
-      const [st, ar, re, tr, pu, pr, no, lk, lc, ap, an, po, rq, iv] = await Promise.all([
+      const [st, ar, re, tr, pu, pr, no, lk, lc, ap, an, po, rq, iv, pm] = await Promise.all([
         supabase.from('settings').select('*').eq('id', 1).maybeSingle(),
         supabase.from('artists').select('*').order('created_at'),
         supabase.from('releases').select('*').order('created_at'),
@@ -365,6 +366,7 @@ export function refresh() {
         session ? supabase.from('payouts').select('*').order('created_at', { ascending: false }) : Promise.resolve({ data: [] }),
         session ? supabase.from('artist_requests').select('*').order('created_at', { ascending: false }) : Promise.resolve({ data: [] }),
         session ? supabase.from('artist_invites').select('*') : Promise.resolve({ data: [] }),
+        supabase.from('promos').select('*').order('created_at', { ascending: false }),
       ])
       const next = emptyDb()
       if (st.data) next.settings = mapSettings(st.data)
@@ -377,6 +379,7 @@ export function refresh() {
       next.notes = Object.fromEntries((an.data || []).map((r) => [r.artist_id, r.notes]))
       next.payouts = (po.data || []).map((r) => ({ id: r.id, artistId: r.artist_id, amount: r.amount, method: r.method, reference: r.reference, note: r.note, at: ms(r.created_at) }))
       next.requests = (rq.data || []).map((r) => ({ id: r.id, artistId: r.artist_id, kind: r.kind, message: r.message, status: r.status, reply: r.reply, at: ms(r.created_at) }))
+      next.promos = (pm.data || []).map(mapPromo)
       next.invites = Object.fromEntries((iv.data || []).map((r) => [r.artist_id, r.email]))
       next.likes = (lk.data || []).map((r) => ({ userId: session.user.id, trackId: r.track_id }))
       next.likeCounts = Object.fromEntries((lc.data || []).map((r) => [r.track_id, Number(r.n)]))
@@ -943,4 +946,43 @@ export async function payLive(user, cartItems, methodId, phone, onStatus = () =>
   if (status === 'paid') { await refresh(); return true }
   if (status === 'failed') throw new Error('Paiement refusé ou annulé. Aucun montant n’a été débité.')
   throw new Error('Pas de validation reçue. Si ton compte a été débité, écris-nous : la commande sera vérifiée.')
+}
+
+
+/* ---------- Promos (publicités de marque, ex. Blue Energy) : rien à vendre ---------- */
+const mapPromo = (r) => ({ id: r.id, title: r.title, brand: r.brand || 'Blue Energy', videoUrl: r.video_url, ctaLabel: r.cta_label || '', ctaUrl: r.cta_url || '', active: !!r.active, views: Number(r.views) || 0, createdAt: ms(r.created_at) })
+export const activePromos = (d) => (d.promos || []).filter((p) => p.active)
+const seenPromo = new Set()
+/** Compte une vue par promo et par visite (anonyme). */
+export function trackPromoView(id) {
+  if (!id || seenPromo.has(id)) return
+  seenPromo.add(id)
+  if (REMOTE) { supabase.rpc('promo_view', { p_id: id }).then(() => {}, () => {}); return }
+  const p = db.promos.find((x) => x.id === id); if (p) { p.views = (p.views || 0) + 1; save() }
+}
+export async function createPromo(admin, { title, brand, videoUrl, videoFile, ctaLabel, ctaUrl }) {
+  requireAdmin(admin)
+  if (!title || !title.trim()) throw new Error('Donne un titre à la publicité.')
+  let video = (videoUrl || '').trim()
+  const id = uid('pr-')
+  if (REMOTE && videoFile) {
+    const ext = (videoFile.name.split('.').pop() || 'mp4').toLowerCase().replace(/[^a-z0-9]/g, '') || 'mp4'
+    const up = await supabase.storage.from('videos').upload(`promo-${id}.${ext}`, videoFile, { contentType: videoFile.type || 'video/mp4', upsert: true })
+    if (up.error) throw new Error(/exceeded|too large|size/i.test(up.error.message) ? 'Vidéo trop lourde (50 Mo maximum). Utilise plutôt un lien YouTube.' : 'Envoi de la vidéo impossible : ' + frError(up.error.message))
+    video = supabase.storage.from('videos').getPublicUrl(`promo-${id}.${ext}`).data.publicUrl
+  } else if (videoFile) video = URL.createObjectURL(videoFile)
+  if (!video) throw new Error('Ajoute une vidéo : lien YouTube ou fichier MP4.')
+  const row = { title: title.trim(), brand: (brand || 'Blue Energy').trim(), video_url: video, cta_label: (ctaLabel || '').trim() || null, cta_url: (ctaUrl || '').trim() || null, active: true }
+  if (REMOTE) { must(await supabase.from('promos').insert(row).select()); return refresh() }
+  db.promos.unshift(mapPromo({ id, ...row, views: 0, created_at: new Date().toISOString() })); save()
+}
+export async function setPromoActive(admin, id, active) {
+  requireAdmin(admin)
+  if (REMOTE) { must(await supabase.from('promos').update({ active }).eq('id', id).select()); return refresh() }
+  Object.assign(db.promos.find((x) => x.id === id), { active }); save()
+}
+export async function deletePromo(admin, id) {
+  requireAdmin(admin)
+  if (REMOTE) { must(await supabase.from('promos').delete().eq('id', id).select()); return refresh() }
+  db.promos = db.promos.filter((x) => x.id !== id); save()
 }

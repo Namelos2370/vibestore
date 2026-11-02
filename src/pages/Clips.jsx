@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
-import { useDb, catalog, likeCount } from '../lib/store'
-import { ClipCard, Empty, MediaSwitch } from '../components/ui'
+import { useDb, catalog, likeCount, activePromos, trackPromoView } from '../lib/store'
+import { ClipCard, Empty, MediaSwitch, PromoCard } from '../components/ui'
 
 // Espace des clips : séparé des sons (page Explorer).
 export default function Clips() {
@@ -10,6 +10,8 @@ export default function Clips() {
   const s = q.trim().toLowerCase()
   const score = (t) => (t.plays || 0) + 3 * likeCount(db, t.id)
   const list = useMemo(() => clips.filter((t) => !s || (t.title + ' ' + t.artist.name).toLowerCase().includes(s)), [clips, s])
+  const promos = activePromos(db)
+  const withPromos = (arr) => { if (s || !promos.length) return arr.map((t) => ({ t })); const o = []; let k = 0; arr.forEach((t, i) => { o.push({ t }); if ((i + 1) % 4 === 0) o.push({ p: promos[k++ % promos.length] }) }); if (arr.length && arr.length < 4) o.push({ p: promos[0] }); return o }
   const popular = [...list].sort((a, b) => score(b) - score(a))
   const fresh = [...list].sort((a, b) => (b.album.createdAt || 0) - (a.album.createdAt || 0))
   return (
@@ -23,7 +25,7 @@ export default function Clips() {
       </label>
       {list.length === 0 ? <Empty>{clips.length ? 'Aucun clip trouvé.' : 'Les premiers clips arrivent bientôt.'}</Empty> : (
         <>
-          <section><h2>{s ? 'Résultats' : 'Clips populaires'}</h2><div className="clipgrid">{popular.map((t) => <ClipCard key={t.id} t={t} />)}</div></section>
+          <section><h2>{s ? 'Résultats' : 'Clips populaires'}</h2><div className="clipgrid">{withPromos(popular).map((x, i) => x.p ? <PromoCard key={'p' + i} p={x.p} onView={trackPromoView} /> : <ClipCard key={x.t.id} t={x.t} />)}</div></section>
           {!s && fresh.length > 3 && <section><h2>Nouveautés</h2><div className="clipgrid">{fresh.slice(0, 6).map((t) => <ClipCard key={t.id} t={t} />)}</div></section>}
         </>
       )}

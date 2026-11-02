@@ -116,3 +116,34 @@ export function ClipCard({ t }) {
     </article>
   )
 }
+
+/** Vidéo promotionnelle : lecture automatique sans son (YouTube ou MP4), l'utilisateur peut activer le son. */
+export function PromoMedia({ url, onPlay }) {
+  const yt = youtubeId(url || '')
+  return (
+    <div className="clip promomedia">
+      {yt ? (
+        <iframe title="Publicité" src={`https://www.youtube-nocookie.com/embed/${yt}?autoplay=1&mute=1&loop=1&playlist=${yt}&rel=0&playsinline=1&controls=1`} allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen loading="lazy" onLoad={onPlay} />
+      ) : (
+        <video src={url} autoPlay muted loop controls playsInline preload="metadata" onPlay={onPlay} />
+      )}
+    </div>
+  )
+}
+/** Libellé légal et lien d'une promo. */
+export function PromoTag({ p }) {
+  return <span className="promotag">Publicité · {p.brand}</span>
+}
+export function PromoCta({ p }) {
+  if (!p.ctaUrl) return null
+  return <a className="btn small ghost" href={p.ctaUrl} target="_blank" rel="noopener noreferrer sponsored">{p.ctaLabel || 'En savoir plus'}</a>
+}
+/** Carte promo dans la grille des clips (non vendue, sans prix). */
+export function PromoCard({ p, onView }) {
+  return (
+    <article className="clipcard promocard">
+      <PromoMedia url={p.videoUrl} onPlay={() => onView && onView(p.id)} />
+      <div className="clipbody"><PromoTag p={p} /><b>{p.title}</b><PromoCta p={p} /></div>
+    </article>
+  )
+}
