@@ -100,20 +100,20 @@ export default function AdminOverview({ db, go }) {
 
   return (
     <>
-      <div className="row wrap between">
+      <header className="ovhead">
         <div>
           <span className="eyebrow">Vue d’ensemble</span>
-          <p className="muted small" style={{ margin: 0 }}>Chiffres {label}{days ? ', comparés aux ' + days + ' jours précédents' : ''}.</p>
+          <p className="muted small">Chiffres {label}{days ? ', comparés aux ' + days + ' jours précédents' : ''}.</p>
         </div>
-        <div className="tabs small" role="group" aria-label="Période">
-          {PERIODS.map(([d, l]) => <button key={d} type="button" className={'tab' + (days === d ? ' on' : '')} onClick={() => setDays(d)}>{l}</button>)}
+        <div className="seg" role="group" aria-label="Période">
+          {PERIODS.map(([d, l]) => <button key={d} type="button" aria-pressed={days === d} className={days === d ? 'on' : ''} onClick={() => setDays(d)}>{l}</button>)}
         </div>
-      </div>
-      <div className="row wrap">
-        <button className="btn small buy" type="button" onClick={() => go('sons')}>+ Son</button>
-        <button className="btn small buy" type="button" onClick={() => go('clips')}>+ Clip</button>
-        <button className="btn small ghost" type="button" onClick={() => go('artistes')}>+ Artiste</button>
-        <button className="btn small ghost" type="button" onClick={() => go('annonces')}>Annonce</button>
+      </header>
+      <div className="quick" role="group" aria-label="Actions rapides">
+        <button type="button" className="qa main" onClick={() => go('sons')}><b>+ Son</b><small>Publier un son</small></button>
+        <button type="button" className="qa main" onClick={() => go('clips')}><b>+ Clip</b><small>Publier un clip</small></button>
+        <button type="button" className="qa" onClick={() => go('artistes')}><b>+ Artiste</b><small>Créer un compte</small></button>
+        <button type="button" className="qa" onClick={() => go('annonces')}><b>Annonce</b><small>Notifier les fans</small></button>
       </div>
 
       <div className="stats">

@@ -368,3 +368,15 @@ textarea{width:100%;font:inherit;color:inherit;background:var(--surface);border:
 .agroups{gap:0;justify-content:space-between}
 .agroup{flex:1 1 auto;font-size:14px;padding:10px 4px;text-align:center}
 @media (min-width:721px){.agroups{justify-content:flex-start;gap:6px}.agroup{flex:none;font-size:16px;padding:10px 16px}}
+
+/* Aperçu admin : période et actions rapides */
+.ovhead{display:flex;flex-direction:column;gap:12px;margin:4px 0 14px}
+.ovhead .muted{margin:4px 0 0}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:4px;gap:4px}
+.seg button{border:0;background:none;color:var(--muted);font:700 15px var(--body);padding:10px 6px;border-radius:9px;cursor:pointer}
+.seg button.on{background:var(--violet);color:#fff}
+.quick{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px}
+.qa{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer;font-family:var(--body)}
+.qa b{font-size:15px}.qa small{color:var(--muted);font-size:12.5px}
+.qa.main{background:color-mix(in srgb,var(--violet) 22%,var(--surface));border-color:color-mix(in srgb,var(--violet) 60%,var(--line))}
+@media (min-width:721px){.ovhead{flex-direction:row;justify-content:space-between;align-items:flex-end}.seg{width:320px}.quick{grid-template-columns:repeat(4,1fr)}}
