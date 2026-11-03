@@ -34,7 +34,17 @@ export async function userFromToken(req) {
 }
 
 /** Requête HTTP(S) en IPv4 forcé (l'API GuTouch expire en IPv6, constaté sur Hostinger). */
+// Si GT_RELAY_URL est défini, les appels vers GuTouch passent par un relais à IP fixe (relay/relay.php),
+// car GuTouch n'accepte que les adresses IP enregistrées et Vercel n'en a pas de fixe.
+async function viaRelay(url, { method, headers, body }) {
+  const r = await fetch(process.env.GT_RELAY_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Relay-Secret': process.env.GT_RELAY_SECRET || '' }, body: JSON.stringify({ url, method, headers, body: body == null ? null : String(body) }), signal: AbortSignal.timeout(30000) })
+  let j = {}
+  try { j = await r.json() } catch {}
+  if (!r.ok || j.status == null) throw new Error('Relais injoignable ou refusé' + (j.error ? ' : ' + j.error : ` (${r.status})`))
+  return { status: j.status, ok: j.status >= 200 && j.status < 300, headers: { get: (k) => (String(k).toLowerCase() === 'www-authenticate' ? j.wwwAuthenticate || null : null) }, text: async () => j.body ?? '' }
+}
 function rq(url, { method = 'GET', headers = {}, body } = {}) {
+  if (process.env.GT_RELAY_URL && /(^|\.)gutouch\.net$/i.test(new URL(url).hostname)) return viaRelay(url, { method, headers, body })
   return new Promise((resolve, reject) => {
     const u = new URL(url)
     const lib = u.protocol === 'http:' ? http : https

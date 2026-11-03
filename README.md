@@ -34,3 +34,11 @@ npm run dev
 ## Paiement réel Mobile Money (GuTouch / TouchPay)
 Variables à définir sur Vercel (jamais dans le dépôt) : `GT_AGENCE`, `GT_LOGIN_AGENT`, `GT_PASSWORD_AGENT`, `GT_PARTNER_ID`, `GT_AUTH_USER`, `GT_AUTH_PASS` (les noms `INTOUCH_AGENCE`, `INTOUCH_LOGIN_API`, `INTOUCH_PASSWORD_API`, `INTOUCH_PARTNER_ID`, `INTOUCH_AUTH_USER`, `INTOUCH_AUTH_PASS` marchent aussi), et `SUPABASE_SERVICE_ROLE_KEY`.
 Puis dans l'admin : Réglages > « Activer le paiement réel ». Routes : `/api/pay`, `/api/pay-status`, `/api/pay-callback`.
+
+## Adresse IP fixe pour GuTouch (relais)
+
+GuTouch n'accepte que des adresses IP enregistrées, et Vercel n'en a pas de fixe. Solution : `relay/relay.php`, à déposer sur un hébergement à IP fixe (Hostinger, VPS). Ce relais ne parle qu'à `apidist.gutouch.net` et exige un secret.
+
+1. Dans `relay.php`, remplace `RELAY_SECRET` par une longue phrase secrète (ne la mets pas dans GitHub), puis dépose le fichier sur l'hébergement.
+2. Variables Vercel : `GT_RELAY_URL` (adresse du fichier, en https) et `GT_RELAY_SECRET` (la même phrase). Redéploie.
+3. Communique à GuTouch l'adresse IP de cet hébergement.
