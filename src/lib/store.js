@@ -874,7 +874,7 @@ export async function cancelInvite(admin, artistId) {
   return refresh()
 }
 export function inviteMessage(artist, email) {
-  const url = typeof window !== 'undefined' ? window.location.origin : 'https://vibestore-dist.vercel.app'
+  const url = typeof window !== 'undefined' ? window.location.origin : 'https://vibestore-distr.store'
   return `Bonjour ${artist.name},\nVibeStore a préparé ta fiche d’artiste. Pour activer ton studio :\n1. Ouvre ${url}/compte\n2. Clique sur « Pas encore de compte ? Inscris-toi »\n3. Utilise exactement cet email : ${email}\n4. Confirme ton email, puis connecte-toi.\nTu y suivras tes écoutes, tes ♥ et tes ventes. À très vite !`
 }
 
