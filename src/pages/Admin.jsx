@@ -168,7 +168,8 @@ function CatalogManager({ admin, onSheet, mode = 'artists' }) {
   const media = mode !== 'artists'
   const inMode = (t) => !media || (mode === 'clip') === isClip(t)
   const tracksOf = (rid) => db.tracks.filter((t) => t.albumId === rid && inMode(t))
-  const relsOf = (id) => db.albums.filter((r) => r.artistId === id && (!media || tracksOf(r.id).length > 0))
+  const isEmpty = (r) => !db.tracks.some((t) => t.albumId === r.id)
+  const relsOf = (id) => db.albums.filter((r) => r.artistId === id && (!media || tracksOf(r.id).length > 0 || (mode === 'sound' && isEmpty(r))))
   const isOpen = (id) => media && open[id] !== false
   const nSounds = (id) => db.tracks.filter((t) => t.artistId === id && !isClip(t)).length
   const nClips = (id) => db.tracks.filter((t) => t.artistId === id && isClip(t)).length
@@ -230,7 +231,7 @@ function CatalogManager({ admin, onSheet, mode = 'artists' }) {
                         </div>
                       ) : (
                         <div className="row wrap mrow">
-                          <div className="tmeta grow"><b>{r.title}{hidden(r) && <span className="badge"> Masqué</span>}</b><span>{r.kind === 'album' ? 'Album' : 'Single'} · {fcfa(r.price)} · {tracksOf(r.id).length} titre(s)</span></div>
+                          <div className="tmeta grow"><b>{r.title}{hidden(r) && <span className="badge"> Masqué</span>}{isEmpty(r) && <span className="badge"> Vide : à supprimer</span>}</b><span>{r.kind === 'album' ? 'Album' : 'Single'} · {fcfa(r.price)} · {tracksOf(r.id).length} titre(s)</span></div>
                           <button className="btn small ghost" type="button" onClick={() => setEdit({ kind: 'release', id: r.id, f: { title: r.title, price: r.price, videoUrl: r.videoUrl || '', artistId: r.artistId } })}>Modifier</button>
                           <button className="btn small ghost" type="button" onClick={() => run(() => updateRelease(admin, r.id, { title: r.title, price: r.price, color: r.color, status: st(r), videoUrl: r.videoUrl }))}>{hidden(r) ? 'Réafficher' : 'Masquer'}</button>
                           <button className="btn small ghost danger" type="button" onClick={() => ask(`Supprimer « ${r.title} » définitivement, avec ses titres, ses fichiers et son annonce ?`) && run(() => deleteRelease(admin, r.id))}>Supprimer</button>

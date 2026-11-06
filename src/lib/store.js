@@ -162,7 +162,7 @@ export function catalog(d) {
   const clips = tracks.filter(isClip)
   const sounds = tracks.filter((t) => !isClip(t))
   // une sortie est « de sons » si elle contient au moins un son, « de clips » si tous ses titres sont des clips
-  const soundAlbums = albums.filter((al) => sounds.some((t) => t.albumId === al.id) || !tracks.some((t) => t.albumId === al.id))
+  const soundAlbums = albums.filter((al) => sounds.some((t) => t.albumId === al.id))
   const clipAlbums = albums.filter((al) => clips.some((t) => t.albumId === al.id))
   return { albums, tracks, sounds, clips, soundAlbums, clipAlbums, artists: d.artists.filter(approvedArtist) }
 }
@@ -516,7 +516,9 @@ async function remoteCreateRelease(admin, { artistId, title, kind, albumPrice, c
     ...r, release_id: rel.id, artist_id: artistId, seed: Math.floor(Math.random() * 90) + 10 + i,
   })))
   if (ins.error) {
+    // Publication ratée : on ne laisse ni sortie vide ni fichier orphelin.
     await supabase.from('releases').delete().eq('id', rel.id)
+    await removeFiles(prepared.map((r) => ({ audioPath: r.audio_path, previewPath: r.preview_path })), [{ coverPath, videoUrl: video }])
     throw new Error(frError(ins.error.message))
   }
   await refresh()
