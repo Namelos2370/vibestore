@@ -581,3 +581,9 @@ begin
 end $$;
 revoke execute on function public.admin_set_artist_email(uuid, text) from public, anon;
 grant execute on function public.admin_set_artist_email(uuid, text) to authenticated;
+
+-- ============================================================
+-- v1.4 : droits explicites du role serveur (paiement reel)
+-- ============================================================
+grant execute on function public.create_pending_order(uuid, jsonb, text, text) to service_role;
+grant execute on function public.finalize_order(text, boolean) to service_role;

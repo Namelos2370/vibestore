@@ -21,7 +21,11 @@ export default async function handler(req, res) {
   // 1) commande en attente (les prix viennent de la base, jamais du navigateur)
   const rpc = await fetch(`${SB_URL}/rest/v1/rpc/create_pending_order`, { method: 'POST', headers: serviceHeaders(e.service), body: JSON.stringify({ p_user: user.id, p_items: items, p_method: method, p_ref: ref }) })
   const rows = await rpc.json().catch(() => null)
-  if (!rpc.ok) return res.status(400).json({ error: (rows && rows.message) || 'Commande impossible.' })
+  if (!rpc.ok) {
+    const m = (rows && rows.message) || ''
+    if (/permission denied/i.test(m)) return res.status(500).json({ error: 'Configuration serveur : la variable SUPABASE_SERVICE_ROLE_KEY de Vercel n’est pas la clé secrète (service_role / sb_secret_…) de Supabase, ou le schéma v1.4 n’a pas été exécuté.' })
+    return res.status(400).json({ error: m || 'Commande impossible.' })
+  }
   const total = (rows || []).reduce((t, r) => t + r.amount, 0)
   if (!rows || !rows.length || total <= 0) return res.status(400).json({ error: 'Rien à payer : tu possèdes déjà ces titres.' })
 

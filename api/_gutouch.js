@@ -21,7 +21,8 @@ export const env = () => ({
 })
 export const configured = (e = env()) => !!(e.agence && e.login && e.password && e.partner && e.authUser && e.authPass && e.service)
 
-export const serviceHeaders = (service) => ({ apikey: service, Authorization: `Bearer ${service}`, 'Content-Type': 'application/json' })
+// Ancienne clé « service_role » (JWT « eyJ… ») : Bearer. Nouvelle clé « sb_secret_… » : en-tête apikey seulement.
+export const serviceHeaders = (service) => ({ apikey: service, ...(String(service).startsWith('eyJ') ? { Authorization: `Bearer ${service}` } : {}), 'Content-Type': 'application/json' })
 
 /** Utilisateur connecté à partir du jeton Supabase du navigateur. */
 export async function userFromToken(req) {
