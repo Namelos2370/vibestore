@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
-  useDb, fcfa, likeCount, currentCommission, artistBalance, artistCommission, PAYOUT_METHODS, REQUEST_KINDS, PLATFORMS, DISTRIBUTION, photoUrl,
+  useDb, fcfa, likeCount, currentCommission, artistBalance, artistCommission, PAYOUT_METHODS, REQUEST_KINDS, PLATFORMS, DISTRIBUTION, photoUrl, isClip,
   updateArtistProfile, removeArtistPhoto, updateArtistPrivate, saveArtistNotes, addPayout, deletePayout, resolveRequest,
   updateInviteEmail, cancelInvite, inviteMessage, changeArtistEmail,
 } from '../lib/store'
@@ -29,6 +30,8 @@ export function statementCsv(db, a) {
   return rows
 }
 
+const SHEET_TABS = [['apercu', 'Aperçu'], ['profil', 'Profil'], ['contrat', 'Contrat'], ['versements', 'Versements'], ['compte', 'Compte']]
+
 export function ArtistSheet({ admin, artist: a, onClose }) {
   const db = useDb()
   const priv = db.priv[a.id] || {}
@@ -39,6 +42,7 @@ export function ArtistSheet({ admin, artist: a, onClose }) {
   const [email, setEmail] = useState(db.invites[a.id] || db.members?.find((m) => m.id === a.userId)?.email || db.users.find((u) => u.id === a.userId)?.email || '')
   const [msg, setMsg] = useState('')
   const [err, setErr] = useState('')
+  const [tab, setTab] = useState('apercu')
   const bal = artistBalance(db, a.id)
   const pct = artistCommission(db, a.id)
   const tracks = db.tracks.filter((t) => t.artistId === a.id)
@@ -52,6 +56,7 @@ export function ArtistSheet({ admin, artist: a, onClose }) {
     })
   }, [db.purchases, a.id])
   const payouts = db.payouts.filter((x) => x.artistId === a.id)
+  const openReqs = db.requests.filter((r) => r.artistId === a.id && r.status === 'open').length
   const run = (label, fn) => async () => { setErr(''); setMsg(''); try { await fn(); setMsg(label) } catch (e) { setErr(e.message) } }
   const L = (k) => (e) => setF({ ...f, links: { ...f.links, [k]: e.target.value } })
   const photo = photoUrl(a.photoPath)
@@ -59,13 +64,26 @@ export function ArtistSheet({ admin, artist: a, onClose }) {
 
   return (
     <section className="panel sheet">
-      <div className="row wrap between">
-        <h2>Fiche de {a.name}{a.verified && <Verified />}</h2>
-        <button className="btn small ghost" type="button" onClick={onClose}>Fermer la fiche</button>
+      <div className="sheethead">
+        <div className="row between">
+          <div className="row">
+            {photo ? <img className="avatar sm" src={photo} alt="" width="44" height="44" /> : <div className="avatar sm ph">{a.name.slice(0, 1)}</div>}
+            <div className="tmeta"><b>{a.name}{a.verified && <Verified />}</b><span>{a.genre || 'Genre non précisé'}{a.city ? ' · ' + a.city : ''} · {a.account === 'active' ? 'Compte actif' : 'Invitation en attente'}</span></div>
+          </div>
+          <button className="btn small ghost" type="button" onClick={onClose}>Fermer</button>
+        </div>
+        <div className="tabs2" role="tablist">
+          {SHEET_TABS.map(([k, l]) => (
+            <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => { setTab(k); setErr(''); setMsg('') }}>
+              {l}{k === 'versements' && bal.due > 0 ? <i className="dot" aria-label="somme due" /> : null}{k === 'apercu' && openReqs > 0 ? <i className="dot" aria-label="demande à traiter" /> : null}
+            </button>
+          ))}
+        </div>
       </div>
       {err && <p className="err" role="alert">{err}</p>}
       {msg && <p className="ok" role="status">{msg}</p>}
 
+      {tab === 'apercu' && <>
       <div className="stats">
         <div className="stat"><span>Écoutes</span><b>{plays}</b></div>
         <div className="stat"><span>J’aime</span><b>{likes}</b></div>
@@ -73,7 +91,20 @@ export function ArtistSheet({ admin, artist: a, onClose }) {
         <div className="stat hi"><span>Reste dû à l’artiste</span><b>{fcfa(bal.due)}</b></div>
       </div>
       <Bars data={series} />
+      <div className="stats">
+        <div className="stat"><span>Sons</span><b>{tracks.filter((t) => !isClip(t)).length}</b></div>
+        <div className="stat"><span>Clips</span><b>{tracks.filter(isClip).length}</b></div>
+        <div className="stat"><span>Commission</span><b>{pct} %</b></div>
+        <div className="stat"><span>Demandes ouvertes</span><b>{openReqs}</b></div>
+      </div>
+      <div className="row wrap">
+        <Link className="btn small buy" to={`/artiste/${a.id}`}>Voir sa page publique</Link>
+        <button className="btn small ghost" type="button" onClick={() => setTab('versements')}>Enregistrer un versement</button>
+        <button className="btn small ghost" type="button" onClick={() => download(`releve-${a.name.replace(/\W+/g, '-').toLowerCase()}.csv`, statementCsv(db, a))}>Relevé (CSV)</button>
+      </div>
+      </>}
 
+      {tab === 'profil' && <>
       <h3>Profil public</h3>
       <div className="row wrap">
         {photo ? <img className="avatar" src={photo} alt="" width="72" height="72" /> : <div className="avatar ph">{a.name.slice(0, 1)}</div>}
@@ -106,7 +137,9 @@ export function ArtistSheet({ admin, artist: a, onClose }) {
         <label className="check"><input type="checkbox" checked={f.verified} onChange={(e) => setF({ ...f, verified: e.target.checked })} /> Artiste vérifié</label>
         <button className="btn buy" type="button" onClick={run('Profil enregistré.', async () => { await updateArtistProfile(admin, a.id, f); setF((x) => ({ ...x, photo: null })) })}>Enregistrer le profil</button>
       </div>
+      </>}
 
+      {tab === 'contrat' && <>
       <h3>Contrat et paiement</h3>
       <p className="muted small">Commission générale actuelle : {currentCommission(db)} %. Laisse vide pour appliquer la commission générale à cet artiste. Un nouveau taux ne s’applique qu’aux futures ventes.</p>
       <div className="row wrap">
@@ -122,7 +155,9 @@ export function ArtistSheet({ admin, artist: a, onClose }) {
         <label className="field grow"><span>Numéro ou compte</span><input value={c.payoutNumber} onChange={(e) => setC({ ...c, payoutNumber: e.target.value })} placeholder="6 99 00 00 00" /></label>
         <button className="btn buy" type="button" onClick={run('Contrat enregistré.', () => updateArtistPrivate(admin, a.id, c))}>Enregistrer</button>
       </div>
+      </>}
 
+      {tab === 'versements' && <>
       <h3>Versements</h3>
       <div className="stats">
         <div className="stat"><span>Part de l’artiste ({100 - pct} %)</span><b>{fcfa(bal.net)}</b></div>
@@ -142,7 +177,9 @@ export function ArtistSheet({ admin, artist: a, onClose }) {
             <button className="btn small ghost danger" type="button" onClick={() => window.confirm('Annuler ce versement ?') && run('Versement annulé.', () => deletePayout(admin, x.id))()}>Annuler</button></li>
         ))}</ul>
       ) : <p className="muted small">Aucun versement enregistré.</p>}
+      </>}
 
+      {tab === 'compte' && <>
       <h3>Invitation et compte</h3>
       {invited ? (
         <>
@@ -168,6 +205,7 @@ export function ArtistSheet({ admin, artist: a, onClose }) {
       <p className="muted small">Visibles par l’équipe VibeStore uniquement.</p>
       <textarea rows="3" value={notes} onChange={(e) => setNotes(e.target.value)} aria-label="Notes internes" />
       <button className="btn small ghost" type="button" onClick={run('Notes enregistrées.', () => saveArtistNotes(admin, a.id, notes))}>Enregistrer les notes</button>
+      </>}
     </section>
   )
 }

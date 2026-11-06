@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, useCallback } from 'react'
-import { useDb, useUser, listenRight, countPlay, trackAudioUrl, coverUrl, PREVIEW_SECONDS } from './store'
+import { pruneFavs } from './favs'
+import { useDb, useUser, pruneGuestLikes, listenRight, countPlay, trackAudioUrl, coverUrl, PREVIEW_SECONDS } from './store'
 
 const Ctx = createContext(null)
 export const useApp = () => useContext(Ctx)
@@ -26,6 +27,13 @@ export function AppProvider({ children }) {
     try { return JSON.parse(localStorage.getItem(CART_KEY)) || [] } catch { return [] }
   })
   useEffect(() => { try { localStorage.setItem(CART_KEY, JSON.stringify(cart)) } catch {} }, [cart])
+  // Un titre ou une sortie supprimé disparaît aussi du panier, des favoris et des coups de cœur de cet appareil.
+  useEffect(() => {
+    if (!db.tracks.length && !db.albums.length) return
+    const tr = new Set(db.tracks.map((t) => t.id)); const al = new Set(db.albums.map((a) => a.id))
+    setCart((c) => { const k = c.filter((x) => (x.type === 'album' ? al : tr).has(x.id)); return k.length === c.length ? c : k })
+    pruneFavs(new Set([...tr, ...al])); pruneGuestLikes(tr)
+  }, [db.tracks, db.albums])
 
   useEffect(() => {
     const a = audioRef.current

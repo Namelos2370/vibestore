@@ -32,10 +32,13 @@ function RequestForm({ user }) {
   )
 }
 
+const STUDIO_TABS = [['resume', 'Résumé'], ['catalogue', 'Catalogue'], ['revenus', 'Revenus'], ['messages', 'Messages']]
+
 // Studio artiste en lecture seule : le compte et les titres sont ajoutés par VibeStore.
 export default function Studio() {
   const db = useDb()
   const user = useUser()
+  const [tab, setTab] = useState('resume')
   if (!user) return <Navigate to="/compte" replace />
   if (user.role !== 'artist') return <Empty>Cet espace est réservé aux artistes. Les comptes artistes sont créés par l’équipe VibeStore.</Empty>
   const artist = myArtist(db, user)
@@ -67,10 +70,19 @@ export default function Studio() {
         <h1 className="h1">Studio de {artist.name}{artist.verified && <Verified />}</h1>
       </div>
 
+      <div className="tabs2" role="tablist">
+        {STUDIO_TABS.map(([k, l]) => (
+          <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>
+            {l}{k === 'messages' && reqs.some((r) => r.status === 'open') ? <i className="dot" aria-label="demande en cours" /> : null}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'resume' && <>
       <div className="infobox">
         <div>
           <b>VibeStore gère ton catalogue.</b>
-          <p>Pour ajouter ou modifier un titre, envoie-nous une demande plus bas : nous le publions pour toi.</p>
+          <p>Pour ajouter ou modifier un titre, écris-nous dans l’onglet Messages : nous le publions pour toi.</p>
         </div>
       </div>
 
@@ -81,6 +93,14 @@ export default function Studio() {
         <div className="stat"><span>Chiffre d’affaires</span><b>{fcfa(bal.gross)}</b></div>
       </div>
 
+      <section className="panel">
+        <h2>Ta page publique</h2>
+        <p className="muted">Partage-la sur WhatsApp et tes réseaux pour vendre directement à tes fans.</p>
+        <Link className="btn buy" to={`/artiste/${artist.id}`}>Voir ma page</Link>
+      </section>
+      </>}
+
+      {tab === 'revenus' && (
       <section className="panel">
         <h2>Mes revenus</h2>
         <div className="stats">
@@ -100,7 +120,9 @@ export default function Studio() {
           </>
         )}
       </section>
+      )}
 
+      {tab === 'catalogue' && <>
       <section>
         <h2>Mes sons</h2>
         {tracks.filter((t) => !isClip(t)).length ? (
@@ -142,7 +164,9 @@ export default function Studio() {
           </ul>
         ) : <Empty>Aucune sortie.</Empty>}
       </section>
+      </>}
 
+      {tab === 'messages' && <>
       <section className="panel">
         <h2>Distribution sur les autres plateformes</h2>
         <p className="muted">Statut : <b>{(DISTRIBUTION.find(([k]) => k === (priv?.distribution || 'none')) || [0, ''])[1]}</b>{priv?.distributor ? ` · distributeur : ${priv.distributor}` : ''}</p>
@@ -161,12 +185,7 @@ export default function Studio() {
           ))}</ul>
         </section>
       )}
-
-      <section className="panel">
-        <h2>Ta page publique</h2>
-        <p className="muted">Partage-la sur WhatsApp et tes réseaux pour vendre directement à tes fans.</p>
-        <Link className="btn buy" to={`/artiste/${artist.id}`}>Voir ma page</Link>
-      </section>
+      </>}
     </>
   )
 }

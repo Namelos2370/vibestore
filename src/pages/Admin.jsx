@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Navigate } from 'react-router-dom'
-import { isClip, purchaseMedia, useDb, useUser, createArtist, createRelease, updateArtist, updateRelease, updateTrack, deleteArtist, deleteRelease, deleteTrack, createPromo, setPromoActive, deletePromo, updateSettings, togglePayment, currentCommission, fcfa, MIN_PRICE, openRequests, purchasesOn, livePayments } from '../lib/store'
+import { isClip, purchaseMedia, useDb, useUser, createArtist, createRelease, updateArtist, updateRelease, updateTrack, deleteArtist, deleteRelease, deleteTrack, createPromo, setPromoActive, deletePromo, deleteNotification, updateSettings, togglePayment, currentCommission, fcfa, MIN_PRICE, openRequests, purchasesOn, livePayments } from '../lib/store'
 import { Empty } from '../components/ui'
 import LyricsEditor from '../components/LyricsEditor'
 import { trackAudioUrl, announce } from '../lib/store'
@@ -152,6 +152,8 @@ function CatalogManager({ admin, onSheet, mode = 'artists' }) {
   const [edit, setEdit] = useState(null) // { kind, id, f }
   const [msg, setMsg] = useState('')
   const [open, setOpen] = useState({})
+  const [q, setQ] = useState('')
+  const [flt, setFlt] = useState('all')
   async function run(fn) { setMsg(''); try { await fn() ; setEdit(null) } catch (e) { setMsg(e.message) } }
   const hidden = (x) => x.status === 'rejected'
   const st = (x) => (hidden(x) ? 'approved' : 'rejected')
@@ -167,14 +169,25 @@ function CatalogManager({ admin, onSheet, mode = 'artists' }) {
   const isOpen = (id) => media && open[id] !== false
   const nSounds = (id) => db.tracks.filter((t) => t.artistId === id && !isClip(t)).length
   const nClips = (id) => db.tracks.filter((t) => t.artistId === id && isClip(t)).length
+  const FILTERS = [['all', 'Tous', () => true], ['active', 'Actifs', (a) => a.account === 'active' && !hidden(a)], ['invited', 'Invitations', (a) => a.account !== 'active'], ['hidden', 'Masqués', (a) => hidden(a) || a.status === 'pending']]
+  const pass = (a) => (FILTERS.find((x) => x[0] === flt) || FILTERS[0])[2](a) && (!q.trim() || a.name.toLowerCase().includes(q.trim().toLowerCase()))
   return (
     <section>
       <h2>{mode === 'sound' ? 'Sons en ligne' : mode === 'clip' ? 'Clips en ligne' : 'Artistes du catalogue'}</h2>
       {msg && <p className="err" role="alert">{msg}</p>}
       {db.artists.length === 0 && <Empty>Aucun artiste pour le moment. Ajoute le premier dans l’onglet Artistes.</Empty>}
       {media && db.artists.length > 0 && !db.artists.some((a) => relsOf(a.id).length) && <Empty>{mode === 'clip' ? 'Aucun clip pour le moment. Publie le premier ci-dessous.' : 'Aucun son pour le moment. Publie le premier ci-dessous.'}</Empty>}
+      {!media && db.artists.length > 3 && (
+        <div className="filterbar">
+          <input type="search" aria-label="Chercher un artiste" placeholder="Chercher un artiste…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <div className="chips" role="group" aria-label="Filtrer">
+            {FILTERS.map(([k, l, fn]) => <button key={k} type="button" className={flt === k ? 'on' : ''} aria-pressed={flt === k} onClick={() => setFlt(k)}>{l} <span>{db.artists.filter(fn).length}</span></button>)}
+          </div>
+        </div>
+      )}
+      {!media && db.artists.length > 3 && !db.artists.some(pass) && <Empty>Aucun artiste ne correspond.</Empty>}
       <ul className="tracks">
-        {[...db.artists].reverse().filter((a) => !media || relsOf(a.id).length).map((a) => {
+        {[...db.artists].reverse().filter((a) => (media ? relsOf(a.id).length : pass(a))).map((a) => {
           const rels = relsOf(a.id)
           return (
             <li key={a.id} className="mgr">
@@ -193,7 +206,7 @@ function CatalogManager({ admin, onSheet, mode = 'artists' }) {
                   {media && <button className="btn small ghost" type="button" onClick={() => setOpen({ ...open, [a.id]: !isOpen(a.id) })}>{isOpen(a.id) ? 'Replier' : 'Déplier'}</button>}
                   {!media && <button className="btn small ghost" type="button" onClick={() => setEdit({ kind: 'artist', id: a.id, f: { name: a.name, genre: a.genre, bio: a.bio } })}>Modifier</button>}
                   {!media && <button className="btn small ghost" type="button" onClick={() => run(() => updateArtist(admin, a.id, { name: a.name, genre: a.genre, bio: a.bio, status: st(a) }))}>{hidden(a) ? 'Réafficher' : 'Masquer'}</button>}
-                  {!media && <button className="btn small ghost danger" type="button" onClick={() => ask(`Supprimer ${a.name}, ses sorties et ses titres ?`) && run(() => deleteArtist(admin, a.id))}>Supprimer</button>}
+                  {!media && <button className="btn small ghost danger" type="button" onClick={() => ask(`Supprimer ${a.name} définitivement ? Ses sorties, ses titres, ses fichiers, ses annonces et ses informations (contrat, versements, demandes) seront effacés. Cette action est irréversible.`) && run(() => deleteArtist(admin, a.id))}>Supprimer</button>}
                 </div>
               )}
               {isOpen(a.id) && (
@@ -214,7 +227,7 @@ function CatalogManager({ admin, onSheet, mode = 'artists' }) {
                           <div className="tmeta grow"><b>{r.title}{hidden(r) && <span className="badge"> Masqué</span>}</b><span>{r.kind === 'album' ? 'Album' : 'Single'} · {fcfa(r.price)} · {tracksOf(r.id).length} titre(s)</span></div>
                           <button className="btn small ghost" type="button" onClick={() => setEdit({ kind: 'release', id: r.id, f: { title: r.title, price: r.price, videoUrl: r.videoUrl || '' } })}>Modifier</button>
                           <button className="btn small ghost" type="button" onClick={() => run(() => updateRelease(admin, r.id, { title: r.title, price: r.price, color: r.color, status: st(r), videoUrl: r.videoUrl }))}>{hidden(r) ? 'Réafficher' : 'Masquer'}</button>
-                          <button className="btn small ghost danger" type="button" onClick={() => ask(`Supprimer « ${r.title} » et ses titres ?`) && run(() => deleteRelease(admin, r.id))}>Supprimer</button>
+                          <button className="btn small ghost danger" type="button" onClick={() => ask(`Supprimer « ${r.title} » définitivement, avec ses titres, ses fichiers et son annonce ?`) && run(() => deleteRelease(admin, r.id))}>Supprimer</button>
                         </div>
                       )}
                       <ul className="sub">
@@ -235,7 +248,7 @@ function CatalogManager({ admin, onSheet, mode = 'artists' }) {
                                 <div className="tmeta grow"><span>{t.title}{hidden(t) && <span className="badge"> Masqué</span>} · {fcfa(t.price)} · {mmss(t.duration)}{t.audioPath ? '' : isClip(t) ? ' · clip de test' : ' · son de test'}{t.lyrics ? ' · paroles' : ''}</span></div>
                                 <button className="btn small ghost" type="button" onClick={() => setEdit({ kind: 'track', id: t.id, f: { title: t.title, price: t.price, lyrics: t.lyrics || '' } })}>Modifier</button>
                                 <button className="btn small ghost" type="button" onClick={() => run(() => updateTrack(admin, t.id, { title: t.title, price: t.price, status: st(t), lyrics: t.lyrics }))}>{hidden(t) ? 'Réafficher' : 'Masquer'}</button>
-                                <button className="btn small ghost danger" type="button" onClick={() => ask(`Supprimer « ${t.title} » ?`) && run(() => deleteTrack(admin, t.id))}>Supprimer</button>
+                                <button className="btn small ghost danger" type="button" onClick={() => ask(`Supprimer « ${t.title} » définitivement, avec son fichier et son annonce ?`) && run(() => deleteTrack(admin, t.id))}>Supprimer</button>
                               </div>
                             )}
                           </li>
@@ -254,6 +267,7 @@ function CatalogManager({ admin, onSheet, mode = 'artists' }) {
 }
 
 function AnnounceForm({ admin }) {
+  const db = useDb()
   const [f, setF] = useState({ title: '', body: '', url: '/' })
   const [err, setErr] = useState('')
   const [ok, setOk] = useState('')
@@ -277,6 +291,17 @@ function AnnounceForm({ admin }) {
       {err && <p className="err" role="alert">{err}</p>}
       {ok && <p className="ok" role="status">{ok}</p>}
       <button className="btn buy" type="submit" disabled={busy}>{busy ? 'Envoi…' : 'Envoyer'}</button>
+      <h3>Annonces publiées</h3>
+      {db.notifications.length === 0 && <p className="muted small">Aucune annonce.</p>}
+      <ul className="tracks">
+        {db.notifications.map((n) => (
+          <li key={n.id} className="row wrap mrow">
+            <div className="tmeta grow"><b>{n.title}</b><span>{n.body ? n.body + ' · ' : ''}{new Date(n.at).toLocaleDateString('fr-FR')}</span></div>
+            <button className="btn small ghost danger" type="button" onClick={() => window.confirm('Supprimer cette annonce ? Elle disparaît de la cloche pour tout le monde.') && deleteNotification(admin, n.id).catch((x) => setErr(x.message))}>Supprimer</button>
+          </li>
+        ))}
+      </ul>
+      <p className="muted small">Une notification déjà reçue sur un téléphone ne peut pas être rappelée ; elle disparaît seulement de la cloche de l’app.</p>
     </form>
   )
 }

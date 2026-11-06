@@ -587,3 +587,40 @@ grant execute on function public.admin_set_artist_email(uuid, text) to authentic
 -- ============================================================
 grant execute on function public.create_pending_order(uuid, jsonb, text, text) to service_role;
 grant execute on function public.finalize_order(text, boolean) to service_role;
+
+-- ============================================================
+-- v1.5 : suppression sans trace
+--  - les annonces qui renvoient vers une sortie / un titre / un artiste supprimé disparaissent avec lui
+--  - les tentatives de paiement non abouties (en attente / échouées) ne bloquent plus la suppression
+-- ============================================================
+create or replace function public.purge_on_delete()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  delete from public.notifications where url like '%' || old.id::text || '%';
+  return old;
+end $$;
+
+create or replace function public.purge_unpaid_on_delete()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if tg_table_name = 'artists' then
+    delete from public.purchases where artist_id = old.id and status <> 'paid';
+  else
+    delete from public.purchases where item_id = old.id and status <> 'paid';
+  end if;
+  return old;
+end $$;
+
+drop trigger if exists purge_notifs_releases on public.releases;
+drop trigger if exists purge_notifs_tracks on public.tracks;
+drop trigger if exists purge_notifs_artists on public.artists;
+create trigger purge_notifs_releases after delete on public.releases for each row execute function public.purge_on_delete();
+create trigger purge_notifs_tracks   after delete on public.tracks   for each row execute function public.purge_on_delete();
+create trigger purge_notifs_artists  after delete on public.artists  for each row execute function public.purge_on_delete();
+
+drop trigger if exists purge_unpaid_releases on public.releases;
+drop trigger if exists purge_unpaid_tracks on public.tracks;
+drop trigger if exists purge_unpaid_artists on public.artists;
+create trigger purge_unpaid_releases before delete on public.releases for each row execute function public.purge_unpaid_on_delete();
+create trigger purge_unpaid_tracks   before delete on public.tracks   for each row execute function public.purge_unpaid_on_delete();
+create trigger purge_unpaid_artists  before delete on public.artists  for each row execute function public.purge_unpaid_on_delete();

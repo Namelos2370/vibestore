@@ -11,3 +11,12 @@ export function toggleFav(id) {
 export function useFavs() {
   return useSyncExternalStore((f) => { subs.add(f); return () => subs.delete(f) }, () => favs)
 }
+
+/** Retire les favoris qui pointent vers des éléments supprimés. */
+export function pruneFavs(validIds) {
+  const k = favs.filter((id) => validIds.has(id))
+  if (k.length === favs.length) return
+  favs = k
+  try { localStorage.setItem(KEY, JSON.stringify(favs)) } catch {}
+  subs.forEach((f) => f())
+}

@@ -327,7 +327,7 @@ const must = ({ data, error }) => { if (error) throw new Error(frError(error.mes
 const mapArtist = (a) => ({ photoPath: a.photo_path || '', city: a.city || '', links: a.links || {}, verified: !!a.verified, id: a.id, userId: a.user_id, name: a.name, genre: a.genre, bio: a.bio, status: a.status, account: a.account, createdAt: ms(a.created_at) })
 const mapAlbum = (r) => ({ coverPath: r.cover_path, videoUrl: r.video_url || '', id: r.id, artistId: r.artist_id, title: r.title, kind: r.kind, color: r.color, price: r.price, status: r.status, createdAt: ms(r.created_at) })
 const mapTrack = (t) => ({ media: t.media === 'clip' ? 'clip' : 'sound', lyrics: t.lyrics || '', id: t.id, albumId: t.release_id, artistId: t.artist_id, title: t.title, duration: t.duration, price: t.price, seed: t.seed, audioName: t.audio_name, audioPath: t.audio_path, previewPath: t.preview_path, status: t.status, plays: t.plays })
-const mapPurchase = (p) => ({ id: p.id, userId: p.user_id, itemType: p.item_type === 'release' ? 'album' : 'track', itemId: p.item_id, artistId: p.artist_id, amount: p.amount, commissionPct: Number(p.commission_pct), method: p.method, at: ms(p.created_at) })
+const mapPurchase = (p) => ({ id: p.id, userId: p.user_id, itemType: p.item_type === 'release' ? 'album' : 'track', itemId: p.item_id, artistId: p.artist_id, amount: p.amount, commissionPct: Number(p.commission_pct), method: p.method, status: p.status || 'paid', at: ms(p.created_at) })
 const mapSettings = (s) => ({
   commissionPct: Number(s.commission_pct), promoCommissionPct: Number(s.promo_commission_pct), promoMonths: s.promo_months,
   launchAt: ms(s.launch_at), minPrice: s.min_price, paymentMethods: s.payment_methods, purchasesEnabled: s.purchases_enabled !== false, demoPayments: s.demo_payments !== false,
@@ -557,7 +557,7 @@ export function coverUrl(path) {
 
 /* ---------- Modifier, masquer, supprimer (admin) ---------- */
 function hasSales(kind, id) {
-  const ps = db.purchases
+  const ps = db.purchases.filter((p) => (p.status || 'paid') === 'paid')
   if (kind === 'artist') return ps.some((p) => p.artistId === id)
   if (kind === 'release') {
     const ids = db.tracks.filter((t) => t.albumId === id).map((t) => t.id)
@@ -596,21 +596,30 @@ export async function updateTrack(admin, id, { title, price, status, lyrics }) {
   Object.assign(db.tracks.find((t) => t.id === id), row); save()
 }
 const SOLD = 'Des ventes existent : masque-le plutôt que de le supprimer, pour que les acheteurs gardent leur musique.'
-async function removeFiles(tracks, releases = []) {
+/** Chemin d'un fichier du stockage à partir de son adresse publique (null si c'est un lien externe, comme YouTube). */
+function storagePathOf(url, bucket) {
+  const m = String(url || '').match(new RegExp(`/storage/v1/object/public/${bucket}/([^?#]+)`))
+  return m ? decodeURIComponent(m[1]) : null
+}
+async function removeFiles(tracks, releases = [], artists = []) {
   if (!REMOTE) return
   const audio = tracks.map((t) => t.audioPath).filter(Boolean)
   const prev = tracks.map((t) => t.previewPath).filter(Boolean)
-  const covers = releases.map((r) => r.coverPath).filter(Boolean)
+  const covers = [...releases.map((r) => r.coverPath), ...artists.map((a) => a.photoPath)].filter((x) => x && !/^data:|^https?:/.test(x))
+  const videos = releases.map((r) => storagePathOf(r.videoUrl, 'videos')).filter(Boolean)
   if (audio.length) await supabase.storage.from('audio').remove(audio)
   if (prev.length) await supabase.storage.from('previews').remove(prev)
   if (covers.length) await supabase.storage.from('covers').remove(covers)
+  if (videos.length) await supabase.storage.from('videos').remove(videos)
 }
+/** Démonstration locale : retire les annonces qui renvoient vers un élément supprimé (la vraie base le fait toute seule). */
+function dropNotifsFor(ids) { db.notifications = db.notifications.filter((n) => !ids.some((id) => String(n.url || '').includes(id))) }
 export async function deleteTrack(admin, id) {
   requireAdmin(admin)
   if (hasSales('track', id)) throw new Error(SOLD)
   const t = db.tracks.find((x) => x.id === id)
   if (REMOTE) { must(await supabase.from('tracks').delete().eq('id', id).select()); await removeFiles([t]); return refresh() }
-  db.tracks = db.tracks.filter((x) => x.id !== id); save()
+  db.tracks = db.tracks.filter((x) => x.id !== id); dropNotifsFor([id]); save()
 }
 export async function deleteRelease(admin, id) {
   requireAdmin(admin)
@@ -618,15 +627,15 @@ export async function deleteRelease(admin, id) {
   const ts = db.tracks.filter((t) => t.albumId === id)
   const r = db.albums.find((x) => x.id === id)
   if (REMOTE) { must(await supabase.from('releases').delete().eq('id', id).select()); await removeFiles(ts, [r]); return refresh() }
-  db.tracks = db.tracks.filter((t) => t.albumId !== id); db.albums = db.albums.filter((a) => a.id !== id); save()
+  db.tracks = db.tracks.filter((t) => t.albumId !== id); db.albums = db.albums.filter((a) => a.id !== id); dropNotifsFor([id, ...ts.map((t) => t.id)]); save()
 }
 export async function deleteArtist(admin, id) {
   requireAdmin(admin)
   if (hasSales('artist', id)) throw new Error(SOLD)
   const rs = db.albums.filter((a) => a.artistId === id)
   const ts = db.tracks.filter((t) => t.artistId === id)
-  if (REMOTE) { must(await supabase.from('artists').delete().eq('id', id).select()); await removeFiles(ts, rs); return refresh() }
-  db.tracks = db.tracks.filter((t) => t.artistId !== id); db.albums = db.albums.filter((a) => a.artistId !== id); db.artists = db.artists.filter((a) => a.id !== id); save()
+  if (REMOTE) { must(await supabase.from('artists').delete().eq('id', id).select()); await removeFiles(ts, rs, [db.artists.find((a) => a.id === id)].filter(Boolean)); return refresh() }
+  db.tracks = db.tracks.filter((t) => t.artistId !== id); db.albums = db.albums.filter((a) => a.artistId !== id); db.artists = db.artists.filter((a) => a.id !== id); delete db.priv[id]; delete db.notes[id]; delete db.invites[id]; db.payouts = (db.payouts || []).filter((x) => x.artistId !== id); db.requests = (db.requests || []).filter((x) => x.artistId !== id); dropNotifsFor([id, ...rs.map((r) => r.id), ...ts.map((t) => t.id)]); save()
 }
 
 /* ---------- Mot de passe oublié ---------- */
@@ -679,6 +688,12 @@ export async function announce(admin, { title, body, url }) {
     return r.ok ? await r.json() : { sent: 0, error: true }
   } catch { return { sent: 0, error: true } }
 }
+/** Supprime une annonce de l'app (les notifications déjà reçues sur un téléphone ne peuvent plus être rappelées). */
+export async function deleteNotification(admin, id) {
+  requireAdmin(admin)
+  if (REMOTE) { must(await supabase.from('notifications').delete().eq('id', id).select()); return refresh() }
+  db.notifications = db.notifications.filter((n) => n.id !== id); save()
+}
 export const VAPID_PUBLIC_KEY = 'BCmCrRonL3_YMbMa3KGQkahICOR1TuUMzGfTJYT498zgydEOznPfYMqWg0amsoqOn1S3msfLPM8rufxzCSWIMgQ'
 const b64 = (s) => { const p = '='.repeat((4 - (s.length % 4)) % 4); const r = atob((s + p).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(r, (c) => c.charCodeAt(0)) }
 export function pushSupport() {
@@ -708,6 +723,11 @@ export async function enablePush() {
 const GKEY = 'vibestore.guestlikes'
 const guestLikes = () => { try { return JSON.parse(localStorage.getItem(GKEY)) || [] } catch { return [] } }
 const setGuestLikes = (a) => { try { localStorage.setItem(GKEY, JSON.stringify(a)) } catch {} }
+/** Oublie les coups de cœur d'appareil qui pointent vers des titres supprimés. */
+export function pruneGuestLikes(validIds) {
+  const g = guestLikes(); const k = g.filter((id) => validIds.has(id))
+  if (k.length !== g.length) setGuestLikes(k)
+}
 export function myLikes(d, user) { return user ? d.likes.filter((l) => l.userId === user.id).map((l) => l.trackId) : guestLikes() }
 export function likeCount(d, trackId) { return d.likeCounts[trackId] || 0 }
 function syncGuestLikesDemo(userId) {
@@ -980,6 +1000,12 @@ export async function setPromoActive(admin, id, active) {
 }
 export async function deletePromo(admin, id) {
   requireAdmin(admin)
-  if (REMOTE) { must(await supabase.from('promos').delete().eq('id', id).select()); return refresh() }
+  const pr = db.promos.find((x) => x.id === id)
+  if (REMOTE) {
+    must(await supabase.from('promos').delete().eq('id', id).select())
+    const f = pr && storagePathOf(pr.videoUrl, 'videos')
+    if (f) await supabase.storage.from('videos').remove([f])
+    return refresh()
+  }
   db.promos = db.promos.filter((x) => x.id !== id); save()
 }
