@@ -624,3 +624,32 @@ drop trigger if exists purge_unpaid_artists on public.artists;
 create trigger purge_unpaid_releases before delete on public.releases for each row execute function public.purge_unpaid_on_delete();
 create trigger purge_unpaid_tracks   before delete on public.tracks   for each row execute function public.purge_unpaid_on_delete();
 create trigger purge_unpaid_artists  before delete on public.artists  for each row execute function public.purge_unpaid_on_delete();
+
+-- ============================================================
+-- v1.6 : une sortie et ses titres appartiennent toujours au même artiste
+--  - répare les sorties dont l'artiste ne correspond pas à celui de leurs titres (le titre fait foi)
+--  - empêche que cela se reproduise
+-- ============================================================
+update public.releases r set artist_id = t.artist_id
+from (select distinct on (release_id) release_id, artist_id from public.tracks order by release_id, created_at) t
+where t.release_id = r.id and t.artist_id <> r.artist_id;
+
+create or replace function public.tracks_follow_release()
+returns trigger language plpgsql set search_path = public as $$
+begin
+  select artist_id into new.artist_id from public.releases where id = new.release_id;
+  return new;
+end $$;
+drop trigger if exists tracks_follow_release on public.tracks;
+create trigger tracks_follow_release before insert or update of release_id, artist_id on public.tracks
+  for each row execute function public.tracks_follow_release();
+
+create or replace function public.release_artist_moves()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if new.artist_id <> old.artist_id then update public.tracks set artist_id = new.artist_id where release_id = new.id; end if;
+  return new;
+end $$;
+drop trigger if exists release_artist_moves on public.releases;
+create trigger release_artist_moves after update of artist_id on public.releases
+  for each row execute function public.release_artist_moves();
