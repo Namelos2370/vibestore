@@ -2,7 +2,7 @@
 import crypto from 'node:crypto'
 import { SB_URL, env, configured, serviceHeaders, userFromToken, startTransaction, finalize } from './_gutouch.js'
 
-export default async function handler(req, res) {
+async function run(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST seulement' })
   const e = env()
   if (!configured(e)) return res.status(503).json({ error: 'Le paiement n’est pas encore configuré sur le serveur.' })
@@ -46,4 +46,11 @@ export default async function handler(req, res) {
   }
   if (tx.status === 'paid') await finalize(ref, true)
   return res.status(200).json({ ref, status: tx.status, total })
+}
+
+export default async function handler(req, res) {
+  try { return await run(req, res) } catch (err) {
+    console.error('[pay] erreur', err)
+    if (!res.headersSent) return res.status(500).json({ error: 'Erreur serveur paiement : ' + String((err && err.message) || err).slice(0, 200) })
+  }
 }

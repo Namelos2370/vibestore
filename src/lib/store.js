@@ -927,8 +927,10 @@ export async function payLive(user, cartItems, methodId, phone, onStatus = () =>
   const H = { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` }
   let r
   try { r = await fetch('/api/pay', { method: 'POST', headers: H, body: JSON.stringify({ items: cartItems, method: methodId, phone }) }) } catch { throw new Error('Connexion impossible. Vérifie ton réseau.') }
-  const j = await r.json().catch(() => ({}))
-  if (!r.ok) throw new Error(j.error || 'Le paiement n’a pas pu démarrer.')
+  const raw = await r.text().catch(() => '')
+  let j = {}
+  try { j = JSON.parse(raw) } catch {}
+  if (!r.ok) throw new Error(j.error || `Le paiement n’a pas pu démarrer (erreur ${r.status}${raw && !j.error ? ' : ' + raw.replace(/<[^>]+>/g, ' ').trim().slice(0, 120) : ''}).`)
   onStatus('pending', j.total)
   let status = j.status
   for (let i = 0; i < 60 && status === 'pending'; i++) {
