@@ -579,13 +579,26 @@ export async function updateArtist(admin, id, { name, genre, bio, status }) {
   if (REMOTE) { must(await supabase.from('artists').update(row).eq('id', id).select()); return refresh() }
   Object.assign(db.artists.find((a) => a.id === id), row); save()
 }
-export async function updateRelease(admin, id, { title, price, color, status, videoUrl }) {
+export async function updateRelease(admin, id, { title, price, color, status, videoUrl, artistId }) {
   requireAdmin(admin)
   if (!(title || '').trim()) throw new Error('Le titre ne peut pas être vide.')
   checkPrice(price, 'pour une sortie')
   const row = { title: title.trim(), price: Number(price), color, status: cleanStatus(status), video_url: (videoUrl || '').trim() || null }
-  if (REMOTE) { must(await supabase.from('releases').update(row).eq('id', id).select()); return refresh() }
-  Object.assign(db.albums.find((a) => a.id === id), { ...row, videoUrl: row.video_url || '' }); save()
+  const cur = db.albums.find((a) => a.id === id)
+  const move = artistId && cur && artistId !== cur.artistId
+  if (move) {
+    if (!db.artists.some((a) => a.id === artistId)) throw new Error('Artiste introuvable.')
+    if (hasSales('release', id)) throw new Error('Des ventes existent : cette sortie ne peut plus changer d’artiste.')
+  }
+  if (REMOTE) {
+    if (move) row.artist_id = artistId
+    must(await supabase.from('releases').update(row).eq('id', id).select())
+    if (move) must(await supabase.from('tracks').update({ artist_id: artistId }).eq('release_id', id).select())
+    return refresh()
+  }
+  Object.assign(cur, { ...row, videoUrl: row.video_url || '' }, move ? { artistId } : {})
+  if (move) db.tracks.filter((t) => t.albumId === id).forEach((t) => { t.artistId = artistId })
+  save()
 }
 export async function updateTrack(admin, id, { title, price, status, lyrics }) {
   requireAdmin(admin)

@@ -51,7 +51,7 @@ function ArtistForm({ admin }) {
 function ReleaseForm({ admin, artists, preset, media = 'sound' }) {
   const db = useDb()
   const clip = media === 'clip'
-  const [artistId, setArtistId] = useState(preset || artists[0]?.id || '')
+  const [artistId, setArtistId] = useState(preset || '')
   const [title, setTitle] = useState('')
   const [kind, setKind] = useState(media === 'clip' ? 'single' : 'album')
   const [albumPrice, setAlbumPrice] = useState(3000)
@@ -78,11 +78,13 @@ function ReleaseForm({ admin, artists, preset, media = 'sound' }) {
   }
   async function submit(e) {
     e.preventDefault()
-    setErr(''); setOk(''); setBusy(true)
+    setErr(''); setOk('')
+    if (!(artistId || preset)) { setErr('Choisis d’abord l’artiste concerné.'); return }
+    setBusy(true)
     try {
       await createRelease(admin, { artistId: artistId || preset, title, kind, albumPrice, color, tracks: rows, cover, videoUrl, videoFile, media })
       setTitle(''); setRows([emptyRow()]); setCover(null); setVideoUrl(''); setVideoFile(null); setCoverKey((k) => k + 1)
-      setOk(clip ? 'Clip publié dans l’espace Clips.' : 'Sortie publiée dans le catalogue.')
+      setOk((clip ? 'Clip publié' : 'Son publié') + ' pour ' + (artists.find((a) => a.id === (artistId || preset))?.name || 'l’artiste') + '.')
     } catch (x) { setErr(x.message) } finally { setBusy(false) }
   }
   const shown = kind === 'single' ? rows.slice(0, 1) : rows
@@ -92,7 +94,8 @@ function ReleaseForm({ admin, artists, preset, media = 'sound' }) {
       <p className="muted small">{clip ? 'Le clip est publié dans l’espace Clips. Le public écoute gratuitement un extrait de 30 s (le son du clip) ; l’acheteur reçoit le clip complet.' : 'Le son est publié directement dans l’espace Sons, sans étape de validation.'}</p>
       <div className="row wrap">
         <label className="field grow2"><span>Artiste</span>
-          <select id="rartist" value={artistId} onChange={(e) => setArtistId(e.target.value)}>
+          <select id="rartist" required value={artistId} onChange={(e) => setArtistId(e.target.value)}>
+            <option value="">Choisis un artiste…</option>
             {artists.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
           </select>
         </label>
@@ -217,6 +220,9 @@ function CatalogManager({ admin, onSheet, mode = 'artists' }) {
                       {isEd('release', r.id) ? (
                         <div className="row wrap">
                           <label className="field grow2"><span>Titre de la sortie</span>{field('title')}</label>
+                          <label className="field grow2" style={{ flexBasis: '100%' }}><span>Artiste</span>
+                            <select value={edit.f.artistId} onChange={(e) => setEdit({ ...edit, f: { ...edit.f, artistId: e.target.value } })}>{db.artists.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select>
+                          </label>
                           <label className="field"><span>Prix (min. {db.settings.minPrice})</span>{field('price', { type: 'number', min: db.settings.minPrice, step: 100 })}</label>
                           <label className="field grow2" style={{ flexBasis: '100%' }}><span>Clip : lien YouTube ou vidéo</span>{field('videoUrl', { type: 'url', placeholder: 'https://youtu.be/…' })}</label>
                           <button className="btn small buy" type="button" onClick={() => run(() => updateRelease(admin, r.id, { ...edit.f, color: r.color, status: r.status }))}>Enregistrer</button>
@@ -225,7 +231,7 @@ function CatalogManager({ admin, onSheet, mode = 'artists' }) {
                       ) : (
                         <div className="row wrap mrow">
                           <div className="tmeta grow"><b>{r.title}{hidden(r) && <span className="badge"> Masqué</span>}</b><span>{r.kind === 'album' ? 'Album' : 'Single'} · {fcfa(r.price)} · {tracksOf(r.id).length} titre(s)</span></div>
-                          <button className="btn small ghost" type="button" onClick={() => setEdit({ kind: 'release', id: r.id, f: { title: r.title, price: r.price, videoUrl: r.videoUrl || '' } })}>Modifier</button>
+                          <button className="btn small ghost" type="button" onClick={() => setEdit({ kind: 'release', id: r.id, f: { title: r.title, price: r.price, videoUrl: r.videoUrl || '', artistId: r.artistId } })}>Modifier</button>
                           <button className="btn small ghost" type="button" onClick={() => run(() => updateRelease(admin, r.id, { title: r.title, price: r.price, color: r.color, status: st(r), videoUrl: r.videoUrl }))}>{hidden(r) ? 'Réafficher' : 'Masquer'}</button>
                           <button className="btn small ghost danger" type="button" onClick={() => ask(`Supprimer « ${r.title} » définitivement, avec ses titres, ses fichiers et son annonce ?`) && run(() => deleteRelease(admin, r.id))}>Supprimer</button>
                         </div>
