@@ -416,3 +416,7 @@ textarea{width:100%;font:inherit;color:inherit;background:var(--surface);border:
 .sheethead>.row.between{flex-wrap:nowrap}
 .tabs2 button{padding:12px 9px;font-size:14px}
 @media (min-width:721px){.tabs2 button{padding:12px 16px;font-size:15px}}
+.offbar{display:flex;flex-direction:column;gap:8px;margin:0 0 12px;align-items:flex-start}
+.offok{color:var(--ok,#34d399);border-color:currentColor}
+.withdl{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.withdl>.track{flex:1 1 100%}

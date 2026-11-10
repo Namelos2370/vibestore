@@ -2,6 +2,7 @@ import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { useDb, useUser, catalog, owns, fcfa, myLikes } from '../lib/store'
 import { trackAudioUrl } from '../lib/store'
 import { useState } from 'react'
+import { useOffline, saveOffline, removeOffline } from '../lib/offline'
 import { AlbumCard, TrackRow, Empty, ClipCard } from '../components/ui'
 
 export default function Library() {
@@ -9,7 +10,9 @@ export default function Library() {
   const user = useUser()
   const [sp] = useSearchParams()
   const [clip, setClip] = useState(null)
-    if (!user) return <Navigate to="/compte" replace />
+  const off = useOffline()
+  const [offErr, setOffErr] = useState('')
+  if (!user) return <Navigate to="/compte" replace />
   const { soundAlbums: albums, tracks: allTracks, clips: allClips } = catalog(db)
   const tracks = allTracks.filter((t) => !allClips.includes(t))
   const myTracks = tracks.filter((t) => owns(db, user, { type: 'track', id: t.id }))
@@ -37,11 +40,24 @@ export default function Library() {
       </section>
       <section>
         <h2>Sons achetés</h2>
+        {myTracks.length > 0 && off.supported && (
+          <div className="offbar">
+            <p className="muted small">Enregistre tes sons dans ton téléphone pour les écouter sans réseau ni données mobiles.</p>
+            <button className="btn small buy" type="button" disabled={myTracks.every((t) => off.ids.has(t.id))} onClick={async () => {
+              setOffErr('')
+              for (const t of myTracks) { if (off.ids.has(t.id)) continue; try { await saveOffline(t.id, () => trackAudioUrl(t, 'full', { download: true })) } catch (e) { setOffErr(e.message); break } }
+            }}>{myTracks.every((t) => off.ids.has(t.id)) ? 'Tout est disponible hors ligne' : 'Tout enregistrer hors ligne'}</button>
+          </div>
+        )}
+        {offErr && <p className="err" role="alert">{offErr}</p>}
         {myTracks.length ? (
           <ul className="tracks">
             {myTracks.map((t) => (
               <div key={t.id} className="withdl">
                 <TrackRow t={t} />
+                {off.supported && (off.ids.has(t.id)
+                  ? <button className="btn small ghost offok" type="button" title="Retirer de ce téléphone" onClick={() => removeOffline(t.id)}>Hors ligne ✓</button>
+                  : <button className="btn small ghost" type="button" disabled={off.busy.has(t.id)} onClick={async () => { setOffErr(''); try { await saveOffline(t.id, () => trackAudioUrl(t, 'full', { download: true })) } catch (e) { setOffErr(e.message) } }}>{off.busy.has(t.id) ? 'Enregistrement…' : 'Hors ligne'}</button>)}
                 <button className="btn small ghost" type="button" onClick={async () => { try { const u = await trackAudioUrl(t, 'full', { download: true }); const a = document.createElement('a'); a.href = u; a.download = `${t.artist.name} - ${t.title}`; document.body.appendChild(a); a.click(); a.remove() } catch (e) { window.alert(e.message) } }}>Télécharger</button>
               </div>
             ))}

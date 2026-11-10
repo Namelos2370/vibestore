@@ -1,3 +1,4 @@
+import { clearOffline, offlineUrl } from './offline'
 // Accès aux données. Deux modes, mêmes fonctions pour les écrans :
 //  - Supabase (par défaut) : comptes, catalogue et achats dans la base (voir supabase/schema.sql)
 //  - démonstration locale (VITE_SUPABASE_DISABLED=1) : tout dans le navigateur (localStorage)
@@ -337,6 +338,23 @@ const mapProfile = (p, email) => ({
   createdAt: ms(p.created_at), trialEndsAt: ms(p.trial_ends_at), city: p.city || '', blocked: !!p.blocked, blockedReason: p.blocked_reason || '',
 })
 
+/* Copie locale (sans réseau) : permet d'ouvrir « Ma musique » et d'écouter les sons enregistrés hors ligne. */
+const SNAP = 'vibestore.snapshot'
+function saveSnapshot() {
+  try {
+    if (!me) { localStorage.removeItem(SNAP); return }
+    const { artists, albums, tracks, purchases, settings } = db
+    localStorage.setItem(SNAP, JSON.stringify({ me, artists, albums, settings, purchases, tracks: tracks.map((t) => ({ ...t, lyrics: '' })) }))
+  } catch {}
+}
+function loadSnapshot() {
+  try {
+    const s = JSON.parse(localStorage.getItem(SNAP) || 'null')
+    if (!s || !s.me) return
+    me = s.me
+    db = { ...emptyDb(), artists: s.artists || [], albums: s.albums || [], tracks: s.tracks || [], purchases: s.purchases || [], settings: s.settings || emptyDb().settings, users: [me] }
+  } catch {}
+}
 let refreshing = null
 let suspendedNotice = false
 function notify() { version++; listeners.forEach((l) => l()) }
@@ -368,6 +386,7 @@ export function refresh() {
         session ? supabase.from('artist_invites').select('*') : Promise.resolve({ data: [] }),
         supabase.from('promos').select('*').order('created_at', { ascending: false }),
       ])
+      if (tr.error && ar.error && re.error) throw new Error('Hors connexion')
       const next = emptyDb()
       if (st.data) next.settings = mapSettings(st.data)
       next.artists = (ar.data || []).map(mapArtist)
@@ -391,8 +410,10 @@ export function refresh() {
       }
       next.users = me ? [me] : []
       db = next
+      saveSnapshot()
     } catch (e) {
       console.error('Chargement Supabase impossible', e)
+      if (!db.tracks.length) loadSnapshot()
     } finally {
       refreshing = null
       notify()
@@ -401,6 +422,8 @@ export function refresh() {
   return refreshing
 }
 if (REMOTE) {
+  loadSnapshot() // affichage immédiat (et hors ligne) avec les dernières données connues
+  if (typeof window !== 'undefined') window.addEventListener('online', () => refresh())
   refresh()
   supabase.auth.onAuthStateChange((event) => { if (event !== 'TOKEN_REFRESHED') setTimeout(refresh, 0) })
 }
@@ -428,6 +451,8 @@ async function remoteSignIn(email, password) {
 async function remoteSignOut() {
   await supabase.auth.signOut()
   me = null
+  try { localStorage.removeItem(SNAP) } catch {}
+  await clearOffline()
   await refresh()
 }
 function remoteCountPlay(trackId) {
@@ -541,6 +566,10 @@ async function remoteTogglePayment(id) {
 
 /** Adresse du son d'un titre : extrait public (30 s), fichier complet signé (acheteurs) ou son de démonstration. */
 export async function trackAudioUrl(t, mode, { download = false } = {}) {
+  if (mode === 'full' && !download) {
+    const local = await offlineUrl(t.id)
+    if (local) return local
+  }
   if (REMOTE && t.audioPath) {
     if (mode === 'full') {
       const { data, error } = await supabase.storage.from('audio').createSignedUrl(t.audioPath, 3600, download ? { download: `${t.artist?.name || 'VibeStore'} - ${t.title}.${t.audioPath.split('.').pop()}` } : undefined)
